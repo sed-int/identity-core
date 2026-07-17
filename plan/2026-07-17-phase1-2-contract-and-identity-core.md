@@ -1,6 +1,6 @@
 # Plan: Phase 1 (API contract) + Phase 2 (Identity core, happy path)
 
-> Status: 🚧 In progress
+> Status: ✅ Completed 2026-07-17 — M1 milestone passed (scripts/m1_smoke.sh)
 
 ## Phase 1 — API contract (`feat/api-contract`)
 
