@@ -26,7 +26,58 @@ services:
       timeout: 3s
       retries: 12
 
-# identity / board services are added here as they are built (Phase 2+)
+  identity:
+    build:
+      context: .
+      dockerfile: services/identity/Dockerfile
+    container_name: idsvc-identity
+    environment:
+      MYSQL_DSN: root:root@tcp(mysql:3306)/identity?parseTime=true
+      REDIS_ADDR: redis:6379
+      ISSUER: http://localhost:8090 # logical iss identifier; must match the boards' TOKEN_ISSUER
+      SIGNING_KEY_PATH: /app/data/keys/identity-signing.pem
+      DEV_MODE: "true"
+    ports:
+      - "8090:8090" # HTTP: gateway + OIDC endpoints
+      - "9090:9090" # gRPC
+    volumes:
+      - identity-keys:/app/data/keys # key survives container recreation
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8090/.well-known/openid-configuration"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  board:
+    build:
+      context: .
+      dockerfile: services/board/Dockerfile
+    container_name: idsvc-board
+    environment:
+      MYSQL_DSN: root:root@tcp(mysql:3306)/board?parseTime=true
+      # Fetch URL uses the compose-internal hostname; iss stays the logical id.
+      JWKS_URL: http://identity:8090/oauth2/v1/jwks
+      TOKEN_ISSUER: http://localhost:8090
+      TOKEN_AUDIENCE: board
+    ports:
+      - "8091:8091" # HTTP: gateway
+      - "9091:9091" # gRPC
+    depends_on:
+      mysql:
+        condition: service_healthy
+      identity:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8091/board/v1/posts"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
 
 volumes:
   mysql-data:
+  identity-keys:
