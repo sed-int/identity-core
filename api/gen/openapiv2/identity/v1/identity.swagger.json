@@ -4,13 +4,151 @@
     "title": "identity/v1/identity.proto",
     "version": "version not set"
   },
+  "tags": [
+    {
+      "name": "IdentityService"
+    }
+  ],
   "consumes": [
     "application/json"
   ],
   "produces": [
     "application/json"
   ],
-  "paths": {},
+  "paths": {
+    "/auth/v1/otp/request": {
+      "post": {
+        "summary": "Sends an OTP to the given phone number (mock SMS in the PoC: the code is\nlogged by the server, and echoed in debug_code when dev mode is on).",
+        "operationId": "IdentityService_RequestOtp",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1RequestOtpResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1RequestOtpRequest"
+            }
+          }
+        ],
+        "tags": [
+          "IdentityService"
+        ]
+      }
+    },
+    "/auth/v1/otp/verify": {
+      "post": {
+        "summary": "Verifies the OTP and routes by account state (PRD §4.2): issues tokens for\nACTIVE users, or returns a flow_token for signup / reactivation /\ndevice-verification continuation.",
+        "operationId": "IdentityService_VerifyOtp",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1VerifyOtpResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1VerifyOtpRequest"
+            }
+          }
+        ],
+        "tags": [
+          "IdentityService"
+        ]
+      }
+    },
+    "/auth/v1/signup": {
+      "post": {
+        "summary": "Completes a new user's signup (nickname etc.) using the flow_token from\nVerifyOtp, transitions the account to ACTIVE, and issues tokens.",
+        "operationId": "IdentityService_CompleteSignup",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1CompleteSignupResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1CompleteSignupRequest"
+            }
+          }
+        ],
+        "tags": [
+          "IdentityService"
+        ]
+      }
+    },
+    "/oauth2/v1/token": {
+      "post": {
+        "summary": "OAuth2-style token endpoint. Supported grant_type: \"refresh_token\"\n(Refresh Token Rotation — PRD §4.3).",
+        "operationId": "IdentityService_IssueToken",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1IssueTokenResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1IssueTokenRequest"
+            }
+          }
+        ],
+        "tags": [
+          "IdentityService"
+        ]
+      }
+    }
+  },
   "definitions": {
     "protobufAny": {
       "type": "object",
@@ -37,6 +175,152 @@
             "type": "object",
             "$ref": "#/definitions/protobufAny"
           }
+        }
+      }
+    },
+    "v1CompleteSignupRequest": {
+      "type": "object",
+      "properties": {
+        "flowToken": {
+          "type": "string"
+        },
+        "nickname": {
+          "type": "string"
+        },
+        "profileImageUrl": {
+          "type": "string"
+        }
+      }
+    },
+    "v1CompleteSignupResponse": {
+      "type": "object",
+      "properties": {
+        "tokens": {
+          "$ref": "#/definitions/v1TokenPair"
+        }
+      }
+    },
+    "v1IssueTokenRequest": {
+      "type": "object",
+      "properties": {
+        "grantType": {
+          "type": "string",
+          "title": "\"refresh_token\""
+        },
+        "refreshToken": {
+          "type": "string"
+        }
+      }
+    },
+    "v1IssueTokenResponse": {
+      "type": "object",
+      "properties": {
+        "accessToken": {
+          "type": "string"
+        },
+        "idToken": {
+          "type": "string"
+        },
+        "refreshToken": {
+          "type": "string",
+          "title": "rotated on every use (RTR)"
+        },
+        "tokenType": {
+          "type": "string",
+          "title": "\"Bearer\""
+        },
+        "expiresIn": {
+          "type": "integer",
+          "format": "int32",
+          "title": "access token lifetime in seconds"
+        }
+      }
+    },
+    "v1NextStep": {
+      "type": "string",
+      "enum": [
+        "NEXT_STEP_UNSPECIFIED",
+        "NEXT_STEP_TOKENS_ISSUED",
+        "NEXT_STEP_SIGNUP_REQUIRED",
+        "NEXT_STEP_REACTIVATION_REQUIRED",
+        "NEXT_STEP_DEVICE_VERIFICATION_REQUIRED"
+      ],
+      "default": "NEXT_STEP_UNSPECIFIED",
+      "description": "Where the client must go after OTP verification (PRD §4.2 state routing).\n\n - NEXT_STEP_TOKENS_ISSUED: ACTIVE user: tokens in this response\n - NEXT_STEP_SIGNUP_REQUIRED: unregistered: continue with flow_token\n - NEXT_STEP_REACTIVATION_REQUIRED: DORMANT: re-consent flow (Phase 6)\n - NEXT_STEP_DEVICE_VERIFICATION_REQUIRED: unknown device: extra check (Phase 6)"
+    },
+    "v1RequestOtpRequest": {
+      "type": "object",
+      "properties": {
+        "phoneNumber": {
+          "type": "string",
+          "title": "E.164, e.g. +821012345678"
+        }
+      }
+    },
+    "v1RequestOtpResponse": {
+      "type": "object",
+      "properties": {
+        "expiresInSeconds": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "debugCode": {
+          "type": "string",
+          "description": "Populated ONLY when the server runs in dev mode (mock SMS). Empty otherwise."
+        }
+      }
+    },
+    "v1TokenPair": {
+      "type": "object",
+      "properties": {
+        "accessToken": {
+          "type": "string"
+        },
+        "idToken": {
+          "type": "string"
+        },
+        "refreshToken": {
+          "type": "string"
+        },
+        "tokenType": {
+          "type": "string"
+        },
+        "expiresIn": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "v1VerifyOtpRequest": {
+      "type": "object",
+      "properties": {
+        "phoneNumber": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        },
+        "deviceFingerprint": {
+          "type": "string"
+        },
+        "deviceName": {
+          "type": "string"
+        }
+      }
+    },
+    "v1VerifyOtpResponse": {
+      "type": "object",
+      "properties": {
+        "nextStep": {
+          "$ref": "#/definitions/v1NextStep"
+        },
+        "tokens": {
+          "$ref": "#/definitions/v1TokenPair",
+          "title": "set iff next_step == TOKENS_ISSUED"
+        },
+        "flowToken": {
+          "type": "string",
+          "title": "set for SIGNUP/REACTIVATION/DEVICE flows; short-lived"
         }
       }
     }

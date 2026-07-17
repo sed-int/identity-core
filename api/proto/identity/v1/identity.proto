@@ -1,7 +1,113 @@
-// Placeholder — the Identity service contract is defined in Phase 1
-// (OTP request/verify, token issuance/refresh, signup completion).
 syntax = "proto3";
 
 package identity.v1;
 
+import "google/api/annotations.proto";
+
 option go_package = "identity-service/api/gen/identity/v1;identityv1";
+
+// IdentityService is the first-party auth surface of the IdP (PRD §4.1).
+// JWKS and OIDC discovery are plain HTTP endpoints served next to the gateway:
+//   GET /.well-known/openid-configuration
+//   GET /oauth2/v1/jwks
+service IdentityService {
+  // Sends an OTP to the given phone number (mock SMS in the PoC: the code is
+  // logged by the server, and echoed in debug_code when dev mode is on).
+  rpc RequestOtp(RequestOtpRequest) returns (RequestOtpResponse) {
+    option (google.api.http) = {
+      post: "/auth/v1/otp/request"
+      body: "*"
+    };
+  }
+
+  // Verifies the OTP and routes by account state (PRD §4.2): issues tokens for
+  // ACTIVE users, or returns a flow_token for signup / reactivation /
+  // device-verification continuation.
+  rpc VerifyOtp(VerifyOtpRequest) returns (VerifyOtpResponse) {
+    option (google.api.http) = {
+      post: "/auth/v1/otp/verify"
+      body: "*"
+    };
+  }
+
+  // Completes a new user's signup (nickname etc.) using the flow_token from
+  // VerifyOtp, transitions the account to ACTIVE, and issues tokens.
+  rpc CompleteSignup(CompleteSignupRequest) returns (CompleteSignupResponse) {
+    option (google.api.http) = {
+      post: "/auth/v1/signup"
+      body: "*"
+    };
+  }
+
+  // OAuth2-style token endpoint. Supported grant_type: "refresh_token"
+  // (Refresh Token Rotation — PRD §4.3).
+  rpc IssueToken(IssueTokenRequest) returns (IssueTokenResponse) {
+    option (google.api.http) = {
+      post: "/oauth2/v1/token"
+      body: "*"
+    };
+  }
+}
+
+message RequestOtpRequest {
+  string phone_number = 1; // E.164, e.g. +821012345678
+}
+
+message RequestOtpResponse {
+  int32 expires_in_seconds = 1;
+  // Populated ONLY when the server runs in dev mode (mock SMS). Empty otherwise.
+  string debug_code = 2;
+}
+
+// Where the client must go after OTP verification (PRD §4.2 state routing).
+enum NextStep {
+  NEXT_STEP_UNSPECIFIED = 0;
+  NEXT_STEP_TOKENS_ISSUED = 1;                 // ACTIVE user: tokens in this response
+  NEXT_STEP_SIGNUP_REQUIRED = 2;               // unregistered: continue with flow_token
+  NEXT_STEP_REACTIVATION_REQUIRED = 3;         // DORMANT: re-consent flow (Phase 6)
+  NEXT_STEP_DEVICE_VERIFICATION_REQUIRED = 4;  // unknown device: extra check (Phase 6)
+}
+
+message VerifyOtpRequest {
+  string phone_number = 1;
+  string code = 2;
+  string device_fingerprint = 3;
+  string device_name = 4;
+}
+
+message VerifyOtpResponse {
+  NextStep next_step = 1;
+  TokenPair tokens = 2;  // set iff next_step == TOKENS_ISSUED
+  string flow_token = 3; // set for SIGNUP/REACTIVATION/DEVICE flows; short-lived
+}
+
+message CompleteSignupRequest {
+  string flow_token = 1;
+  string nickname = 2;
+  string profile_image_url = 3;
+}
+
+message CompleteSignupResponse {
+  TokenPair tokens = 1;
+}
+
+message IssueTokenRequest {
+  string grant_type = 1; // "refresh_token"
+  string refresh_token = 2;
+}
+
+message IssueTokenResponse {
+  string access_token = 1;
+  string id_token = 2;
+  string refresh_token = 3; // rotated on every use (RTR)
+  string token_type = 4;    // "Bearer"
+  int32 expires_in = 5;     // access token lifetime in seconds
+}
+
+message TokenPair {
+  string access_token = 1;
+  string id_token = 2;
+  string refresh_token = 3;
+  string token_type = 4;
+  int32 expires_in = 5;
+}
