@@ -1,6 +1,6 @@
 # Plan: Phase 3 — Stateless verification + Board service (M2)
 
-> Status: 🚧 In progress
+> Status: ✅ Completed 2026-07-17 — M2 milestone passed (scripts/m2_smoke.sh against the compose stack)
 
 Goal (PRD §6): Board creates posts by verifying IdP tokens against cached JWKS —
 zero Identity DB access from Board.
