@@ -1,0 +1,19 @@
+# Secrets — signing keys must never be committed (PRD §7)
+*.pem
+*.key
+.env
+.env.*
+
+# Go
+bin/
+*.test
+coverage.out
+
+# Node / frontend
+node_modules/
+frontend/dist/
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
