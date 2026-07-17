@@ -1,7 +1,51 @@
-// Placeholder — the Board service contract is defined in Phase 1
-// (post create/list).
 syntax = "proto3";
 
 package board.v1;
 
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+
 option go_package = "identity-service/api/gen/board/v1;boardv1";
+
+// BoardService is the resource server (PRD §6): it verifies IdP-issued access
+// tokens statelessly via JWKS — the author is taken from the token's `sub`
+// claim by middleware, never from the request body. Implemented in Phase 3.
+service BoardService {
+  rpc CreatePost(CreatePostRequest) returns (CreatePostResponse) {
+    option (google.api.http) = {
+      post: "/board/v1/posts"
+      body: "*"
+    };
+  }
+
+  rpc ListPosts(ListPostsRequest) returns (ListPostsResponse) {
+    option (google.api.http) = {get: "/board/v1/posts"};
+  }
+}
+
+message Post {
+  int64 id = 1;
+  string author_id = 2; // `sub` claim of the creating token
+  string title = 3;
+  string content = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+message CreatePostRequest {
+  string title = 1;
+  string content = 2;
+}
+
+message CreatePostResponse {
+  Post post = 1;
+}
+
+message ListPostsRequest {
+  int32 page_size = 1;   // default 20, max 100
+  int64 page_after = 2;  // return posts with id < page_after (0 = latest)
+}
+
+message ListPostsResponse {
+  repeated Post posts = 1;
+  int64 next_page_after = 2; // 0 when no more pages
+}
