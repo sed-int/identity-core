@@ -1,6 +1,8 @@
 # Plan: Build order
 
-> Status: 📋 Approved direction — Phase 0 not started
+> Status: 🚧 In progress — Phase 0 ✅ done 2026-07-17 · Phase 1 next
+>
+> Phase 0 notes: logger uses zerolog (user preference over slog); Redis exposed on host port **6380** (6379 taken by the go-msa project); generated code is committed under `api/gen/`; `make install-tools` installs pinned buf + protoc plugins.
 
 Organizing principle: get the PRD §6 E2E scenario (login → token → stateless verification → post) working end-to-end as early as possible with the happy path only, then broaden to edge states, eventing, frontend, and NFRs. Each phase ends with something runnable.
 

@@ -1,0 +1,32 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: idsvc-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root # PoC only — no secrets here
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    container_name: idsvc-redis
+    ports:
+      - "6380:6379" # host 6380 — 6379 is taken by the go-msa project's Redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+# identity / board services are added here as they are built (Phase 2+)
+
+volumes:
+  mysql-data:

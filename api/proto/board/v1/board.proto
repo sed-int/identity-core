@@ -1,0 +1,7 @@
+// Placeholder — the Board service contract is defined in Phase 1
+// (post create/list).
+syntax = "proto3";
+
+package board.v1;
+
+option go_package = "identity-service/api/gen/board/v1;boardv1";
