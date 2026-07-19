@@ -21,6 +21,7 @@ import (
 	deliverygrpc "identity-service/services/identity/internal/delivery/grpc"
 	deliveryhttp "identity-service/services/identity/internal/delivery/http"
 	"identity-service/services/identity/internal/otp"
+	"identity-service/services/identity/internal/outbox"
 	mysqlrepo "identity-service/services/identity/internal/repo/mysql"
 	"identity-service/services/identity/internal/rtr"
 	"identity-service/services/identity/internal/token"
@@ -32,6 +33,7 @@ type App struct {
 	log        zerolog.Logger
 	db         *sql.DB
 	rdb        *redis.Client
+	relay      *outbox.Relay
 	grpcServer *grpc.Server
 	httpServer *http.Server
 }
@@ -69,6 +71,7 @@ func New(ctx context.Context, cfg config.Config, log zerolog.Logger) (*App, erro
 		log:        log,
 		db:         db,
 		rdb:        rdb,
+		relay:      outbox.NewRelay(db, rdb, log),
 		grpcServer: deliverygrpc.NewServer(log, auth),
 		httpServer: &http.Server{Addr: cfg.HTTPAddr, Handler: httpHandler},
 	}, nil
@@ -81,6 +84,10 @@ func (a *App) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	relayCtx, stopRelay := context.WithCancel(context.Background())
+	defer stopRelay()
+	go a.relay.Run(relayCtx)
 
 	errCh := make(chan error, 2)
 	go func() {

@@ -32,10 +32,13 @@ func (r *PostRepo) Create(ctx context.Context, post *domain.Post) (*domain.Post,
 }
 
 func (r *PostRepo) FindByID(ctx context.Context, id int64) (*domain.Post, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT id, author_id, title, content, created_at FROM posts WHERE id = ?`, id)
+	row := r.db.QueryRowContext(ctx, `
+		SELECT p.id, p.author_id, p.title, p.content, p.created_at,
+		       COALESCE(a.nickname, '')
+		FROM posts p LEFT JOIN authors a ON a.user_id = p.author_id
+		WHERE p.id = ?`, id)
 	var p domain.Post
-	if err := row.Scan(&p.ID, &p.AuthorID, &p.Title, &p.Content, &p.CreatedAt); err != nil {
+	if err := row.Scan(&p.ID, &p.AuthorID, &p.Title, &p.Content, &p.CreatedAt, &p.AuthorNickname); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, domain.ErrPostNotFound
 		}
@@ -50,9 +53,11 @@ func (r *PostRepo) List(ctx context.Context, after int64, limit int) ([]*domain.
 	if after == 0 {
 		after = int64(^uint64(0) >> 1) // max int64: start from the newest
 	}
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, author_id, title, content, created_at
-		 FROM posts WHERE id < ? ORDER BY id DESC LIMIT ?`, after, limit)
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT p.id, p.author_id, p.title, p.content, p.created_at,
+		       COALESCE(a.nickname, '')
+		FROM posts p LEFT JOIN authors a ON a.user_id = p.author_id
+		WHERE p.id < ? ORDER BY p.id DESC LIMIT ?`, after, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +66,7 @@ func (r *PostRepo) List(ctx context.Context, after int64, limit int) ([]*domain.
 	var posts []*domain.Post
 	for rows.Next() {
 		var p domain.Post
-		if err := rows.Scan(&p.ID, &p.AuthorID, &p.Title, &p.Content, &p.CreatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.AuthorID, &p.Title, &p.Content, &p.CreatedAt, &p.AuthorNickname); err != nil {
 			return nil, err
 		}
 		posts = append(posts, &p)

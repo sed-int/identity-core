@@ -62,11 +62,12 @@ func (h *Handler) ListPosts(ctx context.Context, req *boardv1.ListPostsRequest) 
 
 func toProto(p *domain.Post) *boardv1.Post {
 	return &boardv1.Post{
-		Id:        p.ID,
-		AuthorId:  p.AuthorID,
-		Title:     p.Title,
-		Content:   p.Content,
-		CreatedAt: timestamppb.New(p.CreatedAt),
+		Id:             p.ID,
+		AuthorId:       p.AuthorID,
+		Title:          p.Title,
+		Content:        p.Content,
+		CreatedAt:      timestamppb.New(p.CreatedAt),
+		AuthorNickname: p.AuthorNickname,
 	}
 }
 

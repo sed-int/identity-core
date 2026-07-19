@@ -23,6 +23,9 @@ type Post struct {
 	Title     string
 	Content   string
 	CreatedAt time.Time
+	// AuthorNickname comes from the local authors read model (replicated via
+	// user.created events); empty if the event hasn't arrived yet.
+	AuthorNickname string
 }
 
 // Validate enforces the invariants a post must satisfy before persistence.

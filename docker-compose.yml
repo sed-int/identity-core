@@ -60,6 +60,7 @@ services:
     container_name: idsvc-board
     environment:
       MYSQL_DSN: root:root@tcp(mysql:3306)/board?parseTime=true
+      REDIS_ADDR: redis:6379 # event stream consumer
       # Fetch URL uses the compose-internal hostname; iss stays the logical id.
       JWKS_URL: http://identity:8090/oauth2/v1/jwks
       TOKEN_ISSUER: http://localhost:8090
