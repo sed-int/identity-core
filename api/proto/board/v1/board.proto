@@ -29,6 +29,9 @@ message Post {
   string title = 3;
   string content = 4;
   google.protobuf.Timestamp created_at = 5;
+  // Resolved from the board's local read model, replicated from
+  // `user.created` events — never by querying the identity service.
+  string author_nickname = 6;
 }
 
 message CreatePostRequest {

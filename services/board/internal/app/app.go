@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -20,6 +21,7 @@ import (
 	boardv1 "identity-service/api/gen/board/v1"
 	"identity-service/pkg/jwks"
 	"identity-service/services/board/internal/config"
+	"identity-service/services/board/internal/consumer"
 	deliverygrpc "identity-service/services/board/internal/delivery/grpc"
 	mysqlrepo "identity-service/services/board/internal/repo/mysql"
 	"identity-service/services/board/internal/usecase"
@@ -29,6 +31,8 @@ type App struct {
 	cfg        config.Config
 	log        zerolog.Logger
 	db         *sql.DB
+	rdb        *redis.Client
+	consumer   *consumer.Consumer
 	grpcServer *grpc.Server
 	httpServer *http.Server
 }
@@ -39,7 +43,14 @@ func New(ctx context.Context, cfg config.Config, log zerolog.Logger) (*App, erro
 		return nil, err
 	}
 
-	// The ONLY link to the identity service: its public keys, over HTTP.
+	rdb := redis.NewClient(&redis.Options{Addr: cfg.RedisAddr})
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		db.Close()
+		return nil, err
+	}
+
+	// The ONLY link to the identity service: its public keys over HTTP, and
+	// its events over the stream — never its database or its APIs.
 	verifier := jwks.New(cfg.JWKSURL, cfg.Issuer, cfg.Audience)
 	board := usecase.NewBoard(mysqlrepo.NewPostRepo(db))
 
@@ -55,6 +66,8 @@ func New(ctx context.Context, cfg config.Config, log zerolog.Logger) (*App, erro
 		cfg:        cfg,
 		log:        log,
 		db:         db,
+		rdb:        rdb,
+		consumer:   consumer.New(rdb, db, log),
 		grpcServer: deliverygrpc.NewServer(log, board, verifier),
 		httpServer: &http.Server{Addr: cfg.HTTPAddr, Handler: gwMux},
 	}, nil
@@ -66,6 +79,10 @@ func (a *App) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	consumerCtx, stopConsumer := context.WithCancel(context.Background())
+	defer stopConsumer()
+	go a.consumer.Run(consumerCtx)
 
 	errCh := make(chan error, 2)
 	go func() {
@@ -90,6 +107,7 @@ func (a *App) Run(ctx context.Context) error {
 	defer cancel()
 	_ = a.httpServer.Shutdown(shutdownCtx)
 	a.grpcServer.GracefulStop()
+	a.rdb.Close()
 	a.db.Close()
 	return err
 }
