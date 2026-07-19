@@ -21,7 +21,7 @@ Go monorepo for an OIDC-style Identity Provider PoC (phone/OTP auth, RS256 JWT +
   - `docs/<short-kebab-desc>` — PRD, plans, README
   - `test/<short-kebab-desc>` — test-only changes
 - Example: `feat/otp-login`, `chore/buf-setup`, `docs/build-order-plan`.
-- Delete branches after merging into `dev`.
+- **Review gate:** work is committed on its branch and left there — merging into `dev` and pushing happen only after hcho reviews and approves. Delete branches after merging into `dev`.
 
 ### Commits
 - Conventional Commits style, matching the branch prefixes: `feat: add OTP verify endpoint`, `fix: handle expired refresh token family`.
