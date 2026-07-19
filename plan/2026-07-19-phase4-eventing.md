@@ -1,6 +1,6 @@
 # Plan: Phase 4 — Eventing (outbox relay + board consumer)
 
-> Status: 🚧 In progress
+> Status: ✅ Completed 2026-07-19 — eventing smoke passed (scripts/m4_smoke.sh)
 
 Goal (PRD §4.2): `user.created` flows from the identity DB's transactional
 outbox to the Board service via Redis Streams, at-least-once, idempotently.
