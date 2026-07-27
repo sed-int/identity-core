@@ -1,0 +1,24 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color-scheme: light dark;
+}
+body {
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+#root { width: 100%; max-width: 40rem; }
+.card {
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+.error { color: #d33; margin: 0.5rem 0; }
+form { display: flex; flex-direction: column; gap: 0.5rem; }
+input, textarea, button { font: inherit; padding: 0.5rem; }
+button { cursor: pointer; }
+button:disabled { cursor: wait; opacity: 0.6; }
+.post-meta { font-size: 0.85rem; opacity: 0.7; }
+.row { display: flex; justify-content: space-between; align-items: center; }
