@@ -2,8 +2,8 @@
 GOBIN := $(shell go env GOPATH)/bin
 export PATH := $(GOBIN):$(PATH)
 
-IDENTITY_DSN ?= mysql://root:root@tcp(localhost:3306)/identity
-BOARD_DSN    ?= mysql://root:root@tcp(localhost:3306)/board
+IDENTITY_DSN ?= mysql://root:root@tcp(localhost:3307)/identity
+BOARD_DSN    ?= mysql://root:root@tcp(localhost:3307)/board
 
 IDENTITY_MIGRATIONS := services/identity/db/migrations
 BOARD_MIGRATIONS    := services/board/db/migrations

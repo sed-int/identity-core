@@ -174,8 +174,8 @@ make migrate-up
 ./scripts/m4_smoke.sh   # 이벤팅: outbox→스트림→읽기 모델→닉네임 노출
 ```
 
-> **포트:** identity HTTP `:8090` / gRPC `:9090`, board HTTP `:8091` / gRPC `:9091`,
-> MySQL `:3306`, Redis 호스트 `:6380`(컨테이너 내부 6379)
+> **포트:** identity HTTP `:8090` / gRPC `:9090`, board HTTP `:8091` / gRPC 호스트 `:9092`(컨테이너 내부 9091),
+> MySQL 호스트 `:3307`(컨테이너 내부 3306), Redis 호스트 `:6380`(컨테이너 내부 6379)
 >
 > **DEV_MODE:** PoC 기본값 `true` — mock SMS의 OTP 코드가 `debug_code` 필드로 응답에 포함됩니다. 실환경 금지.
 

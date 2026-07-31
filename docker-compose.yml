@@ -5,7 +5,7 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: root # PoC only — no secrets here
     ports:
-      - "3306:3306"
+      - "3307:3306" # host 3307 — 3306 is taken by another project's MySQL
     volumes:
       - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - mysql-data:/var/lib/mysql
@@ -67,7 +67,7 @@ services:
       TOKEN_AUDIENCE: board
     ports:
       - "8091:8091" # HTTP: gateway
-      - "9091:9091" # gRPC
+      - "9092:9091" # gRPC — host 9092, 9091 is taken on this host
     depends_on:
       mysql:
         condition: service_healthy
