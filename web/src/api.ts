@@ -32,17 +32,23 @@ export function refreshSession(): Promise<boolean> {
 async function doRefresh(): Promise<boolean> {
   const rt = getRefreshToken()
   if (!rt) return false
-  const res = await fetch('/oauth2/v1/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ grant_type: 'refresh_token', refresh_token: rt }),
-  })
-  if (!res.ok) {
-    clearTokens()
+  try {
+    const res = await fetch('/oauth2/v1/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ grant_type: 'refresh_token', refresh_token: rt }),
+    })
+    if (!res.ok) {
+      clearTokens()
+      return false
+    }
+    setTokens((await res.json()) as TokenPair)
+    return true
+  } catch {
+    // Network-level failure (server down) — refresh token may still be valid,
+    // so don't clear it. Just resolve false; caller treats session as unrefreshed.
     return false
   }
-  setTokens((await res.json()) as TokenPair)
-  return true
 }
 
 async function apiFetch<T>(path: string, init: RequestInit = {}, retried = false): Promise<T> {

@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from 'vitest'
-import { listPosts } from './api'
+import { listPosts, refreshSession } from './api'
 import { clearTokens, getRefreshToken, setTokens, type TokenPair } from './auth'
 
 // node env: minimal localStorage stub (auth.ts only touches it inside functions)
@@ -72,4 +72,18 @@ test('failed refresh clears tokens and surfaces the original 401', async () => {
 
   await expect(listPosts()).rejects.toMatchObject({ status: 401 })
   expect(getRefreshToken()).toBeNull()
+})
+
+test('network failure during refresh resolves false, does not reject or clear tokens', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: RequestInfo | URL) =>
+      String(url).startsWith('/oauth2/')
+        ? Promise.reject(new TypeError('fetch failed'))
+        : new Response('expired', { status: 401 }),
+    ),
+  )
+
+  await expect(refreshSession()).resolves.toBe(false)
+  expect(getRefreshToken()).toBe('rt-1') // token kept — server never rejected it
 })
