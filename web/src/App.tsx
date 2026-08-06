@@ -3,13 +3,9 @@ import { refreshSession } from './api'
 import { getRefreshToken } from './auth'
 import Login from './screens/Login'
 import Signup from './screens/Signup'
+import Board from './screens/Board'
 
 type Screen = 'loading' | 'login' | 'signup' | 'board'
-
-// Task 6 replaces this stub with: import Board from './screens/Board'
-function Board(_: { onLogout: () => void }) {
-  return <main className="card">board — Task 6</main>
-}
 
 export default function App() {
   // A stored refresh token means a previous session: try to restore it (also
