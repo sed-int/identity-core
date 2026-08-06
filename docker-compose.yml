@@ -83,8 +83,10 @@ services:
     build: ./web
     container_name: idsvc-web
     depends_on:
-      - identity
-      - board
+      identity:
+        condition: service_healthy
+      board:
+        condition: service_healthy
     ports:
       - "5174:80" # demo frontend; 5173 stays free for the Vite dev server
 
