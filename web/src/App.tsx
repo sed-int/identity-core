@@ -2,13 +2,10 @@ import { useEffect, useState } from 'react'
 import { refreshSession } from './api'
 import { getRefreshToken } from './auth'
 import Login from './screens/Login'
+import Signup from './screens/Signup'
 
 type Screen = 'loading' | 'login' | 'signup' | 'board'
 
-// Task 5 replaces this stub with: import Signup from './screens/Signup'
-function Signup(_: { flowToken: string; onDone: () => void }) {
-  return <main className="card">signup — Task 5</main>
-}
 // Task 6 replaces this stub with: import Board from './screens/Board'
 function Board(_: { onLogout: () => void }) {
   return <main className="card">board — Task 6</main>
