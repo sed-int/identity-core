@@ -80,7 +80,7 @@ identity-service/
 │   └── board/                  # 2. 리소스 서버 (무상태 검증 데모)
 │       ├── internal/           # 동일 레이어링 + consumer/ (이벤트 → 읽기 모델)
 │       └── db/migrations/
-├── frontend/                   # 3. React 클라이언트 (Phase 5 예정)
+├── web/                        # 3. React 데모 클라이언트 (Vite + TS, Phase 5)
 ├── pkg/
 │   ├── logger/                 # zerolog 공용 로거 (request-id 전파)
 │   └── jwks/                   # 무상태 JWT 검증기 (kid 캐시 + 서킷 브레이커)
@@ -162,7 +162,7 @@ make install-tools
 # 1. Protobuf 린트 & 코드 생성
 make proto
 
-# 2. 전체 스택 기동 (mysql, redis, identity, board)
+# 2. 전체 스택 기동 (mysql, redis, identity, board, web 데모 → http://localhost:5174)
 make run          # = docker compose up -d --build
 
 # 3. DB 마이그레이션 (identity/board 각각)
@@ -172,10 +172,14 @@ make migrate-up
 ./scripts/m1_smoke.sh   # 가입→로그인→RTR→재사용 탐지→JWKS
 ./scripts/m2_smoke.sh   # 무상태 검증: 토큰으로 게시글 작성 (401 매트릭스 포함)
 ./scripts/m4_smoke.sh   # 이벤팅: outbox→스트림→읽기 모델→닉네임 노출
+
+# 5. 프론트엔드 개발 서버 / 단위 테스트 (web/에서 npm install 1회 선행)
+make web-dev      # Vite 개발 서버 → http://localhost:5173
+make web-test     # vitest (API 클라이언트 단위 테스트)
 ```
 
-> **포트:** identity HTTP `:8090` / gRPC `:9090`, board HTTP `:8091` / gRPC `:9091`,
-> MySQL `:3306`, Redis 호스트 `:6380`(컨테이너 내부 6379)
+> **포트:** identity HTTP `:8090` / gRPC `:9090`, board HTTP `:8091` / gRPC 호스트 `:9092`(컨테이너 내부 9091),
+> MySQL 호스트 `:3307`(컨테이너 내부 3306), Redis 호스트 `:6380`(컨테이너 내부 6379)
 >
 > **DEV_MODE:** PoC 기본값 `true` — mock SMS의 OTP 코드가 `debug_code` 필드로 응답에 포함됩니다. 실환경 금지.
 
