@@ -55,6 +55,15 @@ export default function Board({ onLogout }: Props) {
     }
   }
 
+  async function loadMore() {
+    setBusy(true)
+    try {
+      await load(nextPageAfter)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   function logout() {
     clearTokens()
     onLogout()
@@ -93,7 +102,7 @@ export default function Board({ onLogout }: Props) {
         </article>
       ))}
       {nextPageAfter !== '0' && (
-        <button onClick={() => load(nextPageAfter)}>Load more</button>
+        <button disabled={busy} onClick={loadMore}>Load more</button>
       )}
     </main>
   )
