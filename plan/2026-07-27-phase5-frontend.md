@@ -53,7 +53,7 @@ Demo client, not a product.
 
 ## Structure
 
-```
+```text
 web/
   src/
     api.ts        # fetch wrapper: attach token, 401 → refresh → retry once
