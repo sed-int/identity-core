@@ -8,7 +8,7 @@ BOARD_DSN    ?= mysql://root:root@tcp(localhost:3307)/board
 IDENTITY_MIGRATIONS := services/identity/db/migrations
 BOARD_MIGRATIONS    := services/board/db/migrations
 
-.PHONY: install-tools proto migrate-up migrate-down run stop logs test build
+.PHONY: install-tools proto migrate-up migrate-down run stop logs test build web-dev web-test
 
 ## install-tools: install buf + protoc plugins (pinned) into GOPATH/bin
 install-tools:
@@ -47,3 +47,10 @@ build:
 
 test:
 	go test ./...
+
+## web-dev / web-test: frontend dev server / unit tests (run `npm install` in web/ once first)
+web-dev:
+	cd web && npm run dev
+
+web-test:
+	cd web && npm run test

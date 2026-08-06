@@ -79,6 +79,15 @@ services:
       timeout: 3s
       retries: 12
 
+  web:
+    build: ./web
+    container_name: idsvc-web
+    depends_on:
+      - identity
+      - board
+    ports:
+      - "5174:80" # demo frontend; 5173 stays free for the Vite dev server
+
 volumes:
   mysql-data:
   identity-keys:
