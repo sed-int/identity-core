@@ -1,6 +1,6 @@
 # Plan: Phase 5 — Frontend (React + Vite, M3)
 
-> Status: 📋 Planned
+> Status: ✅ Completed 2026-08-06 — M3 passed (§6 scenario clickable on :5173 and :5174, human-verified)
 
 Goal (build-order Phase 5): the full PRD §6 scenario clickable in a browser —
 OTP login → signup completion → post write/list, with token refresh on 401.

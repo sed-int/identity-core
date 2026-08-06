@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-> Status: 📋 Planned — spec: `plan/2026-07-27-phase5-frontend.md`
+> Status: ✅ Completed 2026-08-06 — spec: `plan/2026-07-27-phase5-frontend.md`
 
 **Goal:** PRD §6 scenario clickable in a browser — OTP login → signup → post write/list with 401-driven token refresh (Milestone M3).
 
