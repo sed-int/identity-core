@@ -74,6 +74,7 @@ identity-service/
 │   │   │   ├── token/          # RS256 발급, JWKS/디스커버리, 플로우 토큰
 │   │   │   ├── rtr/            # Refresh Token Rotation (Redis)
 │   │   │   ├── otp/            # OTP 저장소 (Redis, TTL/시도 제한/레이트리밋)
+│   │   │   ├── devverify/      # 미등록 기기 검증 시도 제한 (Redis)
 │   │   │   ├── outbox/         # 아웃박스 → Redis Streams 릴레이
 │   │   │   └── delivery/       # gRPC 핸들러 + HTTP(gateway·OIDC) 구성
 │   │   └── db/migrations/
@@ -110,7 +111,14 @@ sequenceDiagram
     else ACTIVE
         I-->>C: 토큰 즉시 발급 (RTR)
     else DORMANT
-        I-->>C: REACTIVATION_REQUIRED + flow_token (Phase 6)
+        I-->>C: REACTIVATION_REQUIRED + flow_token
+        C->>I: POST /auth/v1/reactivate {flow_token, privacy_consent}
+        I-->>C: DORMANT→ACTIVE 전환 + 토큰 발급
+    else ACTIVE + 미등록 기기
+        I-->>C: DEVICE_VERIFICATION_REQUIRED + flow_token
+        C->>I: POST /auth/v1/device/verify {flow_token, 가입 연월}
+        Note over I: Identity 소유 데이터로만 검증<br/>(3회 시도 제한, Redis)
+        I-->>C: 기기 등록 + 토큰 발급
     end
     C->>B: POST /board/v1/posts (Authorization: Bearer)
     Note over B: JWKS 캐시로 서명 검증<br/>Identity DB 접근 없음
@@ -172,6 +180,7 @@ make migrate-up
 ./scripts/m1_smoke.sh   # 가입→로그인→RTR→재사용 탐지→JWKS
 ./scripts/m2_smoke.sh   # 무상태 검증: 토큰으로 게시글 작성 (401 매트릭스 포함)
 ./scripts/m4_smoke.sh   # 이벤팅: outbox→스트림→읽기 모델→닉네임 노출
+./scripts/m6_smoke.sh   # 엣지 플로우: DORMANT 재활성화 + 미등록 기기 검증
 
 # 5. 프론트엔드 개발 서버 / 단위 테스트 (web/에서 npm install 1회 선행)
 make web-dev      # Vite 개발 서버 → http://localhost:5173
@@ -211,6 +220,8 @@ curl -s localhost:8091/board/v1/posts | jq
 | Identity | `GET /oauth2/v1/jwks` | 공개키 세트 (무상태 검증용) |
 | Identity | `POST /auth/v1/otp/request` · `/otp/verify` | 폰 OTP 로그인 (상태 라우팅) |
 | Identity | `POST /auth/v1/signup` | 가입 완료 (flow_token) |
+| Identity | `POST /auth/v1/reactivate` | DORMANT 재활성화 — 개인정보 재동의 필수 |
+| Identity | `POST /auth/v1/device/verify` | 미등록 기기 추가 검증 (가입 연월, 3회 제한) |
 | Identity | `POST /oauth2/v1/token` | 토큰 갱신 (`grant_type=refresh_token`, RTR) |
 | Board | `POST /board/v1/posts` | 게시글 작성 — **Bearer 필수** |
 | Board | `GET /board/v1/posts` | 게시글 목록 — 공개, keyset 페이지네이션 |
@@ -236,8 +247,8 @@ make test    # 단위 테스트 전체
 | 2 | Identity 코어 — OTP/상태 라우팅/RS256/RTR | ✅ **M1** 2026-07-17 |
 | 3 | pkg/jwks + Board 무상태 검증 | ✅ **M2** 2026-07-17 |
 | 4 | 이벤팅 — 아웃박스 릴레이 + 읽기 모델 | ✅ 2026-07-19 |
-| 5 | React 프론트엔드 (**M3**) | 📋 예정 |
-| 6 | 엣지 플로우 — DORMANT 재활성화, 미등록 기기 로그인 시 추가 검증 (OTP 하드닝은 Phase 2에서 선반영) | 📋 예정 |
+| 5 | React 프론트엔드 (**M3**) | ✅ **M3** 2026-08-06 |
+| 6 | 엣지 플로우 — DORMANT 재활성화, 미등록 기기 로그인 시 추가 검증 (OTP 하드닝은 Phase 2에서 선반영) | ✅ 2026-08-28 |
 | 7 | NFR 검증 — k6 부하 테스트, 서킷 브레이커 데모, testcontainers | 📋 예정 |
 
 ## 프로젝트 컨벤션

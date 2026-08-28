@@ -1,6 +1,6 @@
 # Plan: Build order
 
-> Status: 🚧 In progress — Phases 0–5 ✅ done (M1–M3 passed, frontend live 2026-08-06) · Phase 6 (edge states) next
+> Status: 🚧 In progress — Phases 0–6 ✅ done (M1–M3 passed, edge flows 2026-08-28) · Phase 7 (NFR 검증) next
 >
 > Phase 0 notes: logger uses zerolog (user preference over slog); Redis exposed on host port **6380** (6379 taken by the go-msa project); generated code is committed under `api/gen/`; `make install-tools` installs pinned buf + protoc plugins.
 
