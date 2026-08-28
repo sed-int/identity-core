@@ -19,7 +19,7 @@ func TestAttemptCapAndReset(t *testing.T) {
 	ctx := context.Background()
 	l := newTestLimiter(t)
 
-	for i := 0; i < MaxAttempts; i++ {
+	for i := range MaxAttempts {
 		if err := l.Attempt(ctx, 42); err != nil {
 			t.Fatalf("attempt %d: unexpected error %v", i+1, err)
 		}

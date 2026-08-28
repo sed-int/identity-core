@@ -56,7 +56,8 @@ func (h *Handler) CompleteSignup(ctx context.Context, req *identityv1.CompleteSi
 	if req.GetFlowToken() == "" || req.GetNickname() == "" {
 		return nil, status.Error(codes.InvalidArgument, "flow_token and nickname are required")
 	}
-	tokens, err := h.auth.CompleteSignup(ctx, req.GetFlowToken(), req.GetNickname(), req.GetProfileImageUrl())
+	tokens, err := h.auth.CompleteSignup(ctx, req.GetFlowToken(), req.GetNickname(), req.GetProfileImageUrl(),
+		req.GetDeviceFingerprint(), req.GetDeviceName())
 	if err != nil {
 		return nil, mapErr(err)
 	}

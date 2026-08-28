@@ -20,6 +20,7 @@ import (
 	"identity-service/services/identity/internal/config"
 	deliverygrpc "identity-service/services/identity/internal/delivery/grpc"
 	deliveryhttp "identity-service/services/identity/internal/delivery/http"
+	"identity-service/services/identity/internal/devverify"
 	"identity-service/services/identity/internal/otp"
 	"identity-service/services/identity/internal/outbox"
 	mysqlrepo "identity-service/services/identity/internal/repo/mysql"
@@ -56,6 +57,7 @@ func New(ctx context.Context, cfg config.Config, log zerolog.Logger) (*App, erro
 		mysqlrepo.NewUserRepo(db),
 		otp.NewStore(rdb),
 		rtr.NewStore(rdb),
+		devverify.NewLimiter(rdb),
 		token.NewIssuer(key, cfg.Issuer),
 		log,
 		cfg.DevMode,
