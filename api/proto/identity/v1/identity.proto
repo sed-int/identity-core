@@ -39,6 +39,26 @@ service IdentityService {
     };
   }
 
+  // Completes DORMANT-account reactivation (PRD §4.2 item 3): the flow_token
+  // from VerifyOtp plus explicit privacy re-consent roll the account back to
+  // ACTIVE and issue tokens.
+  rpc CompleteReactivation(CompleteReactivationRequest) returns (CompleteReactivationResponse) {
+    option (google.api.http) = {
+      post: "/auth/v1/reactivate"
+      body: "*"
+    };
+  }
+
+  // Completes unknown-device verification (PRD §4.2 item 4): the user proves
+  // an Identity-owned fact (account creation month) before the new device is
+  // registered and tokens are issued. 3 attempts per flow.
+  rpc VerifyDevice(VerifyDeviceRequest) returns (VerifyDeviceResponse) {
+    option (google.api.http) = {
+      post: "/auth/v1/device/verify"
+      body: "*"
+    };
+  }
+
   // OAuth2-style token endpoint. Supported grant_type: "refresh_token"
   // (Refresh Token Rotation — PRD §4.3).
   rpc IssueToken(IssueTokenRequest) returns (IssueTokenResponse) {
@@ -64,8 +84,8 @@ enum NextStep {
   NEXT_STEP_UNSPECIFIED = 0;
   NEXT_STEP_TOKENS_ISSUED = 1;                 // ACTIVE user: tokens in this response
   NEXT_STEP_SIGNUP_REQUIRED = 2;               // unregistered: continue with flow_token
-  NEXT_STEP_REACTIVATION_REQUIRED = 3;         // DORMANT: re-consent flow (Phase 6)
-  NEXT_STEP_DEVICE_VERIFICATION_REQUIRED = 4;  // unknown device: extra check (Phase 6)
+  NEXT_STEP_REACTIVATION_REQUIRED = 3;         // DORMANT: re-consent via CompleteReactivation
+  NEXT_STEP_DEVICE_VERIFICATION_REQUIRED = 4;  // unknown device: extra check via VerifyDevice
 }
 
 message VerifyOtpRequest {
@@ -85,6 +105,32 @@ message CompleteSignupRequest {
   string flow_token = 1;
   string nickname = 2;
   string profile_image_url = 3;
+  // The signup device is registered so the user's next login from it is not
+  // flagged as a device change.
+  string device_fingerprint = 4;
+  string device_name = 5;
+}
+
+message CompleteReactivationRequest {
+  string flow_token = 1;      // purpose=reactivation, from VerifyOtp
+  bool privacy_consent = 2;   // must be true (PRD §4.2: re-consent required)
+  string device_fingerprint = 3;
+  string device_name = 4;
+}
+
+message CompleteReactivationResponse {
+  TokenPair tokens = 1;
+}
+
+message VerifyDeviceRequest {
+  string flow_token = 1;         // purpose=device_verify, from VerifyOtp
+  string registration_month = 2; // account creation month, "YYYY-MM" (UTC)
+  string device_fingerprint = 3;
+  string device_name = 4;
+}
+
+message VerifyDeviceResponse {
+  TokenPair tokens = 1;
 }
 
 message CompleteSignupResponse {

@@ -19,10 +19,12 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	IdentityService_RequestOtp_FullMethodName     = "/identity.v1.IdentityService/RequestOtp"
-	IdentityService_VerifyOtp_FullMethodName      = "/identity.v1.IdentityService/VerifyOtp"
-	IdentityService_CompleteSignup_FullMethodName = "/identity.v1.IdentityService/CompleteSignup"
-	IdentityService_IssueToken_FullMethodName     = "/identity.v1.IdentityService/IssueToken"
+	IdentityService_RequestOtp_FullMethodName           = "/identity.v1.IdentityService/RequestOtp"
+	IdentityService_VerifyOtp_FullMethodName            = "/identity.v1.IdentityService/VerifyOtp"
+	IdentityService_CompleteSignup_FullMethodName       = "/identity.v1.IdentityService/CompleteSignup"
+	IdentityService_CompleteReactivation_FullMethodName = "/identity.v1.IdentityService/CompleteReactivation"
+	IdentityService_VerifyDevice_FullMethodName         = "/identity.v1.IdentityService/VerifyDevice"
+	IdentityService_IssueToken_FullMethodName           = "/identity.v1.IdentityService/IssueToken"
 )
 
 // IdentityServiceClient is the client API for IdentityService service.
@@ -45,6 +47,14 @@ type IdentityServiceClient interface {
 	// Completes a new user's signup (nickname etc.) using the flow_token from
 	// VerifyOtp, transitions the account to ACTIVE, and issues tokens.
 	CompleteSignup(ctx context.Context, in *CompleteSignupRequest, opts ...grpc.CallOption) (*CompleteSignupResponse, error)
+	// Completes DORMANT-account reactivation (PRD §4.2 item 3): the flow_token
+	// from VerifyOtp plus explicit privacy re-consent roll the account back to
+	// ACTIVE and issue tokens.
+	CompleteReactivation(ctx context.Context, in *CompleteReactivationRequest, opts ...grpc.CallOption) (*CompleteReactivationResponse, error)
+	// Completes unknown-device verification (PRD §4.2 item 4): the user proves
+	// an Identity-owned fact (account creation month) before the new device is
+	// registered and tokens are issued. 3 attempts per flow.
+	VerifyDevice(ctx context.Context, in *VerifyDeviceRequest, opts ...grpc.CallOption) (*VerifyDeviceResponse, error)
 	// OAuth2-style token endpoint. Supported grant_type: "refresh_token"
 	// (Refresh Token Rotation — PRD §4.3).
 	IssueToken(ctx context.Context, in *IssueTokenRequest, opts ...grpc.CallOption) (*IssueTokenResponse, error)
@@ -88,6 +98,26 @@ func (c *identityServiceClient) CompleteSignup(ctx context.Context, in *Complete
 	return out, nil
 }
 
+func (c *identityServiceClient) CompleteReactivation(ctx context.Context, in *CompleteReactivationRequest, opts ...grpc.CallOption) (*CompleteReactivationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CompleteReactivationResponse)
+	err := c.cc.Invoke(ctx, IdentityService_CompleteReactivation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *identityServiceClient) VerifyDevice(ctx context.Context, in *VerifyDeviceRequest, opts ...grpc.CallOption) (*VerifyDeviceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VerifyDeviceResponse)
+	err := c.cc.Invoke(ctx, IdentityService_VerifyDevice_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *identityServiceClient) IssueToken(ctx context.Context, in *IssueTokenRequest, opts ...grpc.CallOption) (*IssueTokenResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(IssueTokenResponse)
@@ -118,6 +148,14 @@ type IdentityServiceServer interface {
 	// Completes a new user's signup (nickname etc.) using the flow_token from
 	// VerifyOtp, transitions the account to ACTIVE, and issues tokens.
 	CompleteSignup(context.Context, *CompleteSignupRequest) (*CompleteSignupResponse, error)
+	// Completes DORMANT-account reactivation (PRD §4.2 item 3): the flow_token
+	// from VerifyOtp plus explicit privacy re-consent roll the account back to
+	// ACTIVE and issue tokens.
+	CompleteReactivation(context.Context, *CompleteReactivationRequest) (*CompleteReactivationResponse, error)
+	// Completes unknown-device verification (PRD §4.2 item 4): the user proves
+	// an Identity-owned fact (account creation month) before the new device is
+	// registered and tokens are issued. 3 attempts per flow.
+	VerifyDevice(context.Context, *VerifyDeviceRequest) (*VerifyDeviceResponse, error)
 	// OAuth2-style token endpoint. Supported grant_type: "refresh_token"
 	// (Refresh Token Rotation — PRD §4.3).
 	IssueToken(context.Context, *IssueTokenRequest) (*IssueTokenResponse, error)
@@ -139,6 +177,12 @@ func (UnimplementedIdentityServiceServer) VerifyOtp(context.Context, *VerifyOtpR
 }
 func (UnimplementedIdentityServiceServer) CompleteSignup(context.Context, *CompleteSignupRequest) (*CompleteSignupResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CompleteSignup not implemented")
+}
+func (UnimplementedIdentityServiceServer) CompleteReactivation(context.Context, *CompleteReactivationRequest) (*CompleteReactivationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CompleteReactivation not implemented")
+}
+func (UnimplementedIdentityServiceServer) VerifyDevice(context.Context, *VerifyDeviceRequest) (*VerifyDeviceResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method VerifyDevice not implemented")
 }
 func (UnimplementedIdentityServiceServer) IssueToken(context.Context, *IssueTokenRequest) (*IssueTokenResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method IssueToken not implemented")
@@ -218,6 +262,42 @@ func _IdentityService_CompleteSignup_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _IdentityService_CompleteReactivation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompleteReactivationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IdentityServiceServer).CompleteReactivation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IdentityService_CompleteReactivation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IdentityServiceServer).CompleteReactivation(ctx, req.(*CompleteReactivationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _IdentityService_VerifyDevice_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VerifyDeviceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IdentityServiceServer).VerifyDevice(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IdentityService_VerifyDevice_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IdentityServiceServer).VerifyDevice(ctx, req.(*VerifyDeviceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _IdentityService_IssueToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(IssueTokenRequest)
 	if err := dec(in); err != nil {
@@ -254,6 +334,14 @@ var IdentityService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CompleteSignup",
 			Handler:    _IdentityService_CompleteSignup_Handler,
+		},
+		{
+			MethodName: "CompleteReactivation",
+			Handler:    _IdentityService_CompleteReactivation_Handler,
+		},
+		{
+			MethodName: "VerifyDevice",
+			Handler:    _IdentityService_VerifyDevice_Handler,
 		},
 		{
 			MethodName: "IssueToken",

@@ -16,6 +16,39 @@
     "application/json"
   ],
   "paths": {
+    "/auth/v1/device/verify": {
+      "post": {
+        "summary": "Completes unknown-device verification (PRD §4.2 item 4): the user proves\nan Identity-owned fact (account creation month) before the new device is\nregistered and tokens are issued. 3 attempts per flow.",
+        "operationId": "IdentityService_VerifyDevice",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1VerifyDeviceResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1VerifyDeviceRequest"
+            }
+          }
+        ],
+        "tags": [
+          "IdentityService"
+        ]
+      }
+    },
     "/auth/v1/otp/request": {
       "post": {
         "summary": "Sends an OTP to the given phone number (mock SMS in the PoC: the code is\nlogged by the server, and echoed in debug_code when dev mode is on).",
@@ -74,6 +107,39 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/v1VerifyOtpRequest"
+            }
+          }
+        ],
+        "tags": [
+          "IdentityService"
+        ]
+      }
+    },
+    "/auth/v1/reactivate": {
+      "post": {
+        "summary": "Completes DORMANT-account reactivation (PRD §4.2 item 3): the flow_token\nfrom VerifyOtp plus explicit privacy re-consent roll the account back to\nACTIVE and issue tokens.",
+        "operationId": "IdentityService_CompleteReactivation",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1CompleteReactivationResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1CompleteReactivationRequest"
             }
           }
         ],
@@ -178,6 +244,33 @@
         }
       }
     },
+    "v1CompleteReactivationRequest": {
+      "type": "object",
+      "properties": {
+        "flowToken": {
+          "type": "string",
+          "title": "purpose=reactivation, from VerifyOtp"
+        },
+        "privacyConsent": {
+          "type": "boolean",
+          "title": "must be true (PRD §4.2: re-consent required)"
+        },
+        "deviceFingerprint": {
+          "type": "string"
+        },
+        "deviceName": {
+          "type": "string"
+        }
+      }
+    },
+    "v1CompleteReactivationResponse": {
+      "type": "object",
+      "properties": {
+        "tokens": {
+          "$ref": "#/definitions/v1TokenPair"
+        }
+      }
+    },
     "v1CompleteSignupRequest": {
       "type": "object",
       "properties": {
@@ -188,6 +281,13 @@
           "type": "string"
         },
         "profileImageUrl": {
+          "type": "string"
+        },
+        "deviceFingerprint": {
+          "type": "string",
+          "description": "The signup device is registered so the user's next login from it is not\nflagged as a device change."
+        },
+        "deviceName": {
           "type": "string"
         }
       }
@@ -246,7 +346,7 @@
         "NEXT_STEP_DEVICE_VERIFICATION_REQUIRED"
       ],
       "default": "NEXT_STEP_UNSPECIFIED",
-      "description": "Where the client must go after OTP verification (PRD §4.2 state routing).\n\n - NEXT_STEP_TOKENS_ISSUED: ACTIVE user: tokens in this response\n - NEXT_STEP_SIGNUP_REQUIRED: unregistered: continue with flow_token\n - NEXT_STEP_REACTIVATION_REQUIRED: DORMANT: re-consent flow (Phase 6)\n - NEXT_STEP_DEVICE_VERIFICATION_REQUIRED: unknown device: extra check (Phase 6)"
+      "description": "Where the client must go after OTP verification (PRD §4.2 state routing).\n\n - NEXT_STEP_TOKENS_ISSUED: ACTIVE user: tokens in this response\n - NEXT_STEP_SIGNUP_REQUIRED: unregistered: continue with flow_token\n - NEXT_STEP_REACTIVATION_REQUIRED: DORMANT: re-consent via CompleteReactivation\n - NEXT_STEP_DEVICE_VERIFICATION_REQUIRED: unknown device: extra check via VerifyDevice"
     },
     "v1RequestOtpRequest": {
       "type": "object",
@@ -288,6 +388,33 @@
         "expiresIn": {
           "type": "integer",
           "format": "int32"
+        }
+      }
+    },
+    "v1VerifyDeviceRequest": {
+      "type": "object",
+      "properties": {
+        "flowToken": {
+          "type": "string",
+          "title": "purpose=device_verify, from VerifyOtp"
+        },
+        "registrationMonth": {
+          "type": "string",
+          "title": "account creation month, \"YYYY-MM\" (UTC)"
+        },
+        "deviceFingerprint": {
+          "type": "string"
+        },
+        "deviceName": {
+          "type": "string"
+        }
+      }
+    },
+    "v1VerifyDeviceResponse": {
+      "type": "object",
+      "properties": {
+        "tokens": {
+          "$ref": "#/definitions/v1TokenPair"
         }
       }
     },
