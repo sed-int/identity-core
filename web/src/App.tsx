@@ -3,9 +3,11 @@ import { refreshSession } from './api'
 import { getRefreshToken } from './auth'
 import Login from './screens/Login'
 import Signup from './screens/Signup'
+import Reactivate from './screens/Reactivate'
+import DeviceVerify from './screens/DeviceVerify'
 import Board from './screens/Board'
 
-type Screen = 'loading' | 'login' | 'signup' | 'board'
+type Screen = 'loading' | 'login' | 'signup' | 'reactivate' | 'deviceVerify' | 'board'
 
 export default function App() {
   // A stored refresh token means a previous session: try to restore it (also
@@ -30,10 +32,28 @@ export default function App() {
             setFlowToken(ft)
             setScreen('signup')
           }}
+          onReactivationRequired={(ft) => {
+            setFlowToken(ft)
+            setScreen('reactivate')
+          }}
+          onDeviceVerifyRequired={(ft) => {
+            setFlowToken(ft)
+            setScreen('deviceVerify')
+          }}
         />
       )
     case 'signup':
       return <Signup flowToken={flowToken} onDone={() => setScreen('board')} />
+    case 'reactivate':
+      return <Reactivate flowToken={flowToken} onDone={() => setScreen('board')} />
+    case 'deviceVerify':
+      return (
+        <DeviceVerify
+          flowToken={flowToken}
+          onDone={() => setScreen('board')}
+          onRestart={() => setScreen('login')}
+        />
+      )
     case 'board':
       return <Board onLogout={() => setScreen('login')} />
   }

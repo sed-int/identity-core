@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	identityv1 "identity-service/api/gen/identity/v1"
+	"identity-service/services/identity/internal/devverify"
 	"identity-service/services/identity/internal/domain"
 	"identity-service/services/identity/internal/otp"
 	"identity-service/services/identity/internal/rtr"
@@ -56,11 +57,36 @@ func (h *Handler) CompleteSignup(ctx context.Context, req *identityv1.CompleteSi
 	if req.GetFlowToken() == "" || req.GetNickname() == "" {
 		return nil, status.Error(codes.InvalidArgument, "flow_token and nickname are required")
 	}
-	tokens, err := h.auth.CompleteSignup(ctx, req.GetFlowToken(), req.GetNickname(), req.GetProfileImageUrl())
+	tokens, err := h.auth.CompleteSignup(ctx, req.GetFlowToken(), req.GetNickname(), req.GetProfileImageUrl(),
+		req.GetDeviceFingerprint(), req.GetDeviceName())
 	if err != nil {
 		return nil, mapErr(err)
 	}
 	return &identityv1.CompleteSignupResponse{Tokens: toProtoTokens(tokens)}, nil
+}
+
+func (h *Handler) CompleteReactivation(ctx context.Context, req *identityv1.CompleteReactivationRequest) (*identityv1.CompleteReactivationResponse, error) {
+	if req.GetFlowToken() == "" {
+		return nil, status.Error(codes.InvalidArgument, "flow_token is required")
+	}
+	tokens, err := h.auth.CompleteReactivation(ctx, req.GetFlowToken(), req.GetPrivacyConsent(),
+		req.GetDeviceFingerprint(), req.GetDeviceName())
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return &identityv1.CompleteReactivationResponse{Tokens: toProtoTokens(tokens)}, nil
+}
+
+func (h *Handler) VerifyDevice(ctx context.Context, req *identityv1.VerifyDeviceRequest) (*identityv1.VerifyDeviceResponse, error) {
+	if req.GetFlowToken() == "" || req.GetRegistrationMonth() == "" {
+		return nil, status.Error(codes.InvalidArgument, "flow_token and registration_month are required")
+	}
+	tokens, err := h.auth.VerifyDevice(ctx, req.GetFlowToken(), req.GetRegistrationMonth(),
+		req.GetDeviceFingerprint(), req.GetDeviceName())
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return &identityv1.VerifyDeviceResponse{Tokens: toProtoTokens(tokens)}, nil
 }
 
 func (h *Handler) IssueToken(ctx context.Context, req *identityv1.IssueTokenRequest) (*identityv1.IssueTokenResponse, error) {
@@ -100,6 +126,18 @@ func mapErr(err error) error {
 		errors.Is(err, rtr.ErrReuseDetected),
 		errors.Is(err, token.ErrInvalidFlowToken):
 		return status.Error(codes.Unauthenticated, err.Error())
+	case errors.Is(err, usecase.ErrConsentRequired):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, usecase.ErrDeviceVerifyFailed),
+		errors.Is(err, devverify.ErrTooManyAttempts):
+		// Same code as the OTP failures: an auth challenge was not met.
+		return status.Error(codes.Unauthenticated, err.Error())
+	case errors.Is(err, domain.ErrInvalidTransition):
+		// e.g. replaying a used reactivation flow token on an ACTIVE account.
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, domain.ErrUserNotFound):
+		// Flow token for a since-deleted user; don't leak which part failed.
+		return status.Error(codes.Unauthenticated, "invalid flow")
 	case errors.Is(err, domain.ErrLoginNotAllowed):
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, domain.ErrCredentialConflict):

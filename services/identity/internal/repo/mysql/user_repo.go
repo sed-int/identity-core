@@ -149,25 +149,31 @@ func (r *UserRepo) TouchLastLogin(ctx context.Context, userID int64) error {
 	return err
 }
 
-// UpsertDevice records the device and reports whether it was already known.
-func (r *UserRepo) UpsertDevice(ctx context.Context, userID int64, fingerprint, name string) (known bool, err error) {
-	if fingerprint == "" {
-		return true, nil // clients without fingerprints skip device tracking (PoC)
+// IsDeviceKnown reports whether the fingerprint is already registered for the
+// user. Read-only: the unknown-device flow (PRD §4.2) must not register a
+// device before it has been verified.
+func (r *UserRepo) IsDeviceKnown(ctx context.Context, userID int64, fingerprint string) (bool, error) {
+	var one int
+	err := r.db.QueryRowContext(ctx,
+		`SELECT 1 FROM user_devices WHERE user_id = ? AND device_fingerprint = ?`,
+		userID, fingerprint).Scan(&one)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
 	}
-	res, err := r.db.ExecContext(ctx, `
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// UpsertDevice registers the device or refreshes last_seen_at/device_name.
+func (r *UserRepo) UpsertDevice(ctx context.Context, userID int64, fingerprint, name string) error {
+	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO user_devices (user_id, device_fingerprint, device_name)
 		VALUES (?, ?, ?)
 		ON DUPLICATE KEY UPDATE last_seen_at = NOW(6), device_name = VALUES(device_name)`,
 		userID, fingerprint, nullable(name))
-	if err != nil {
-		return false, err
-	}
-	// MySQL reports 1 affected row for a fresh INSERT, 2 for a duplicate-key UPDATE.
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return false, err
-	}
-	return affected != 1, nil
+	return err
 }
 
 func nullable(s string) any {
