@@ -23,7 +23,8 @@ FLOW=$(jq -r .flowToken <<<"$VERIFY")
 ok "unregistered phone routed to signup"
 
 # 3. Complete signup → tokens
-TOKENS=$(curl -sf "$BASE/auth/v1/signup" -d "{\"flow_token\":\"$FLOW\",\"nickname\":\"smoker\"}" | jq .tokens)
+TOKENS=$(curl -sf "$BASE/auth/v1/signup" \
+  -d "{\"flow_token\":\"$FLOW\",\"nickname\":\"smoker\",\"device_fingerprint\":\"smoke-device\",\"device_name\":\"m1-smoke\"}" | jq .tokens)
 ACCESS=$(jq -r .accessToken <<<"$TOKENS")
 REFRESH1=$(jq -r .refreshToken <<<"$TOKENS")
 [ -n "$ACCESS" ] && [ "$ACCESS" != "null" ] || fail "no access token after signup"
