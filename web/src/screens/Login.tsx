@@ -5,9 +5,16 @@ import { setTokens } from '../auth'
 interface Props {
   onTokens: () => void
   onSignupRequired: (flowToken: string) => void
+  onReactivationRequired: (flowToken: string) => void
+  onDeviceVerifyRequired: (flowToken: string) => void
 }
 
-export default function Login({ onTokens, onSignupRequired }: Props) {
+export default function Login({
+  onTokens,
+  onSignupRequired,
+  onReactivationRequired,
+  onDeviceVerifyRequired,
+}: Props) {
   const [phone, setPhone] = useState('+8210')
   const [code, setCode] = useState('')
   const [stage, setStage] = useState<'phone' | 'code'>('phone')
@@ -43,8 +50,14 @@ export default function Login({ onTokens, onSignupRequired }: Props) {
         case 'NEXT_STEP_SIGNUP_REQUIRED':
           onSignupRequired(res.flowToken!)
           break
+        case 'NEXT_STEP_REACTIVATION_REQUIRED':
+          onReactivationRequired(res.flowToken!)
+          break
+        case 'NEXT_STEP_DEVICE_VERIFICATION_REQUIRED':
+          onDeviceVerifyRequired(res.flowToken!)
+          break
         default:
-          setError(`${res.nextStep}: phase 6 flow — not supported in this demo`)
+          setError(`unexpected next step: ${res.nextStep}`)
       }
     } catch (err) {
       setError(err instanceof ApiError && err.status === 401 ? 'wrong or expired code' : String(err))

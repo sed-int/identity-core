@@ -106,7 +106,34 @@ export const verifyOtp = (phoneNumber: string, code: string) =>
 export const completeSignup = (flowToken: string, nickname: string) =>
   apiFetch<{ tokens: TokenPair }>('/auth/v1/signup', {
     method: 'POST',
-    body: JSON.stringify({ flow_token: flowToken, nickname }),
+    body: JSON.stringify({
+      flow_token: flowToken,
+      nickname,
+      device_fingerprint: deviceFingerprint(),
+      device_name: deviceName(),
+    }),
+  })
+
+export const completeReactivation = (flowToken: string) =>
+  apiFetch<{ tokens: TokenPair }>('/auth/v1/reactivate', {
+    method: 'POST',
+    body: JSON.stringify({
+      flow_token: flowToken,
+      privacy_consent: true, // the screen's button IS the consent action
+      device_fingerprint: deviceFingerprint(),
+      device_name: deviceName(),
+    }),
+  })
+
+export const verifyDevice = (flowToken: string, registrationMonth: string) =>
+  apiFetch<{ tokens: TokenPair }>('/auth/v1/device/verify', {
+    method: 'POST',
+    body: JSON.stringify({
+      flow_token: flowToken,
+      registration_month: registrationMonth,
+      device_fingerprint: deviceFingerprint(),
+      device_name: deviceName(),
+    }),
   })
 
 // ---- board.v1 ----
