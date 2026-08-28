@@ -8,27 +8,27 @@
 
 ## 핵심 데모 포인트
 
-| # | 주제 | 구현 |
-| :--- | :--- | :--- |
-| 1 | **무상태 토큰 검증** | Board는 Identity DB에 접근 권한 자체가 없음. JWKS 공개키 캐시만으로 서명 검증 |
-| 2 | **Protobuf 주도 개발** | `.proto`가 단일 진실 공급원 — gRPC 코드, REST 프록시(gRPC-Gateway), Swagger 자동 생성 |
-| 3 | **Refresh Token Rotation** | 재사용 탐지 시 토큰 패밀리 전체 무효화 (탈취 대응) |
-| 4 | **트랜잭셔널 아웃박스** | DB 쓰기와 이벤트 발행의 원자성 보장, at-least-once + 멱등 컨슈머 |
-| 5 | **이벤트 기반 읽기 모델** | Board가 `user.created` 이벤트로 닉네임을 로컬 복제 — 조회 시 Identity 호출 없음 |
-| 6 | **레이어드 아키텍처** | domain / usecase / repo / delivery 분리, `cmd → app` 컴포지션 루트 |
+| # | 주제                             | 구현                                                                                     |
+| :- | :------------------------------- | :--------------------------------------------------------------------------------------- |
+| 1 | **무상태 토큰 검증**       | Board는 Identity DB에 접근 권한 자체가 없음. JWKS 공개키 캐시만으로 서명 검증            |
+| 2 | **Protobuf 주도 개발**     | `.proto`가 단일 진실 공급원 — gRPC 코드, REST 프록시(gRPC-Gateway), Swagger 자동 생성 |
+| 3 | **Refresh Token Rotation** | 재사용 탐지 시 토큰 패밀리 전체 무효화 (탈취 대응)                                       |
+| 4 | **트랜잭셔널 아웃박스**    | DB 쓰기와 이벤트 발행의 원자성 보장, at-least-once + 멱등 컨슈머                         |
+| 5 | **이벤트 기반 읽기 모델**  | Board가`user.created` 이벤트로 닉네임을 로컬 복제 — 조회 시 Identity 호출 없음        |
+| 6 | **레이어드 아키텍처**      | domain / usecase / repo / delivery 분리,`cmd → app` 컴포지션 루트                     |
 
 ## 시스템 아키텍처
 
 엔터프라이즈급 목표를 이해하되, 로컬 실행 가능한 경량 대안으로 치환합니다.
 
-| 구성 요소 | 목표 (Enterprise) | PoC 구현 (현재) |
-| :--- | :--- | :--- |
-| 인프라 / 라우팅 | Kubernetes | **Docker Compose** |
-| 서비스 통신 | gRPC / API Gateway | **gRPC + gRPC-Gateway(REST 프록시)** |
-| 서킷 브레이커 | Istio (Envoy) | **`sony/gobreaker`** — Board→Identity JWKS 페치에 적용 |
-| 이벤트 스트리밍 | Apache Kafka | **Redis Streams** (컨슈머 그룹, at-least-once) |
-| 데이터베이스 | MySQL Cluster (DB per service) | **MySQL 단일 컨테이너, `identity`/`board` DB 분리** (cross-DB 조인 금지) |
-| 서명 키 관리 | KMS / HSM | 로컬 PEM (named volume, gitignore) |
+| 구성 요소       | 목표 (Enterprise)              | PoC 구현 (현재)                                                                    |
+| :-------------- | :----------------------------- | :--------------------------------------------------------------------------------- |
+| 인프라 / 라우팅 | Kubernetes                     | **Docker Compose**                                                           |
+| 서비스 통신     | gRPC / API Gateway             | **gRPC + gRPC-Gateway(REST 프록시)**                                         |
+| 서킷 브레이커   | Istio (Envoy)                  | **`sony/gobreaker`** — Board→Identity JWKS 페치에 적용                   |
+| 이벤트 스트리밍 | Apache Kafka                   | **Redis Streams** (컨슈머 그룹, at-least-once)                               |
+| 데이터베이스    | MySQL Cluster (DB per service) | **MySQL 단일 컨테이너, `identity`/`board` DB 분리** (cross-DB 조인 금지) |
+| 서명 키 관리    | KMS / HSM                      | 로컬 PEM (named volume, gitignore)                                                 |
 
 ```mermaid
 flowchart LR
@@ -129,15 +129,15 @@ sequenceDiagram
 
 ## 토큰 & 키 스펙
 
-| 항목 | 값 |
-| :--- | :--- |
-| 서명 | RS256, JWT 헤더에 `kid` 포함 (JWKS는 현재+이전 키 서빙으로 무중단 회전) |
-| Access Token | TTL **15분** — `iss, sub, aud("board"), exp, iat, jti, status` |
-| ID Token | OIDC 표준 클레임 + `nickname`, `aud("poc-frontend")` |
-| Refresh Token | 불투명 토큰, TTL **14일**, Redis에 토큰 패밀리로 저장 |
-| RTR | 갱신마다 회전. **이미 회전된 토큰 재사용 → 패밀리 전체 무효화** → 재로그인 강제 |
-| Flow Token | 다단계 플로우 연결용 (10분, purpose 스코프: signup / reactivation / device_verify) |
-| 로그아웃/폐기 | Refresh 패밀리 삭제. Access는 짧은 TTL로 노출 창 제한 (무상태 트레이드오프) |
+| 항목          | 값                                                                                     |
+| :------------ | :------------------------------------------------------------------------------------- |
+| 서명          | RS256, JWT 헤더에`kid` 포함 (JWKS는 현재+이전 키 서빙으로 무중단 회전)               |
+| Access Token  | TTL**15분** — `iss, sub, aud("board"), exp, iat, jti, status`                 |
+| ID Token      | OIDC 표준 클레임 +`nickname`, `aud("poc-frontend")`                                |
+| Refresh Token | 불투명 토큰, TTL**14일**, Redis에 토큰 패밀리로 저장                             |
+| RTR           | 갱신마다 회전.**이미 회전된 토큰 재사용 → 패밀리 전체 무효화** → 재로그인 강제 |
+| Flow Token    | 다단계 플로우 연결용 (10분, purpose 스코프: signup / reactivation / device_verify)     |
+| 로그아웃/폐기 | Refresh 패밀리 삭제. Access는 짧은 TTL로 노출 창 제한 (무상태 트레이드오프)            |
 
 ## 무상태 검증기 (`pkg/jwks`)
 
@@ -214,17 +214,17 @@ curl -s localhost:8091/board/v1/posts | jq
 
 ### 주요 엔드포인트
 
-| 서비스 | 메서드/경로 | 설명 |
-| :--- | :--- | :--- |
-| Identity | `GET /.well-known/openid-configuration` | OIDC 디스커버리 |
-| Identity | `GET /oauth2/v1/jwks` | 공개키 세트 (무상태 검증용) |
-| Identity | `POST /auth/v1/otp/request` · `/otp/verify` | 폰 OTP 로그인 (상태 라우팅) |
-| Identity | `POST /auth/v1/signup` | 가입 완료 (flow_token) |
-| Identity | `POST /auth/v1/reactivate` | DORMANT 재활성화 — 개인정보 재동의 필수 |
-| Identity | `POST /auth/v1/device/verify` | 미등록 기기 추가 검증 (가입 연월, 3회 제한) |
-| Identity | `POST /oauth2/v1/token` | 토큰 갱신 (`grant_type=refresh_token`, RTR) |
-| Board | `POST /board/v1/posts` | 게시글 작성 — **Bearer 필수** |
-| Board | `GET /board/v1/posts` | 게시글 목록 — 공개, keyset 페이지네이션 |
+| 서비스   | 메서드/경로                                      | 설명                                          |
+| :------- | :----------------------------------------------- | :-------------------------------------------- |
+| Identity | `GET /.well-known/openid-configuration`        | OIDC 디스커버리                               |
+| Identity | `GET /oauth2/v1/jwks`                          | 공개키 세트 (무상태 검증용)                   |
+| Identity | `POST /auth/v1/otp/request` · `/otp/verify` | 폰 OTP 로그인 (상태 라우팅)                   |
+| Identity | `POST /auth/v1/signup`                         | 가입 완료 (flow_token)                        |
+| Identity | `POST /auth/v1/reactivate`                     | DORMANT 재활성화 — 개인정보 재동의 필수      |
+| Identity | `POST /auth/v1/device/verify`                  | 미등록 기기 추가 검증 (가입 연월, 3회 제한)   |
+| Identity | `POST /oauth2/v1/token`                        | 토큰 갱신 (`grant_type=refresh_token`, RTR) |
+| Board    | `POST /board/v1/posts`                         | 게시글 작성 —**Bearer 필수**           |
+| Board    | `GET /board/v1/posts`                          | 게시글 목록 — 공개, keyset 페이지네이션      |
 
 Swagger 스펙은 `api/gen/openapiv2/`에 생성됩니다.
 
@@ -240,21 +240,21 @@ make test    # 단위 테스트 전체
 
 ## 로드맵
 
-| Phase | 내용 | 상태 |
-| :--- | :--- | :--- |
-| 0 | 스캐폴딩 (buf, compose, Makefile, logger) | ✅ 2026-07-17 |
-| 1 | API 계약 (proto SSoT) | ✅ 2026-07-17 |
-| 2 | Identity 코어 — OTP/상태 라우팅/RS256/RTR | ✅ **M1** 2026-07-17 |
-| 3 | pkg/jwks + Board 무상태 검증 | ✅ **M2** 2026-07-17 |
-| 4 | 이벤팅 — 아웃박스 릴레이 + 읽기 모델 | ✅ 2026-07-19 |
-| 5 | React 프론트엔드 (**M3**) | ✅ **M3** 2026-08-06 |
-| 6 | 엣지 플로우 — DORMANT 재활성화, 미등록 기기 로그인 시 추가 검증 (OTP 하드닝은 Phase 2에서 선반영) | ✅ 2026-08-28 |
-| 7 | NFR 검증 — k6 부하 테스트, 서킷 브레이커 데모, testcontainers | 📋 예정 |
+| Phase | 내용                                                                                               | 상태                      |
+| :---- | :------------------------------------------------------------------------------------------------- | :------------------------ |
+| 0     | 스캐폴딩 (buf, compose, Makefile, logger)                                                          | ✅ 2026-07-17             |
+| 1     | API 계약 (proto SSoT)                                                                              | ✅ 2026-07-17             |
+| 2     | Identity 코어 — OTP/상태 라우팅/RS256/RTR                                                         | ✅**M1** 2026-07-17 |
+| 3     | pkg/jwks + Board 무상태 검증                                                                       | ✅**M2** 2026-07-17 |
+| 4     | 이벤팅 — 아웃박스 릴레이 + 읽기 모델                                                              | ✅ 2026-07-19             |
+| 5     | React 프론트엔드 (**M3**)                                                                    | ✅**M3** 2026-08-06 |
+| 6     | 엣지 플로우 — DORMANT 재활성화, 미등록 기기 로그인 시 추가 검증 (OTP 하드닝은 Phase 2에서 선반영) | ✅ 2026-08-28             |
+| 7     | NFR 검증 — k6 부하 테스트, 서킷 브레이커 데모, testcontainers                                     | 📋 예정                   |
 
 ## 프로젝트 컨벤션
 
 - **계획 우선:** 모든 작업은 `plan/YYYY-MM-DD-<topic>.md`로 계획·기록 (상태 마커 📋/🚧/✅)
-- **브랜치 모델:** `dev`가 소스 오브 트루스, 마일스톤마다 `main`으로 머지.
+- **브랜치 모델:** `dev`가 진실의 원천(Source of Truth), 마일스톤마다 `main`으로 머지.
   모든 변경은 `feat/` `fix/` `refactor/` `chore/` `docs/` `test/` 접두사 브랜치에서 작업 후 `dev`로 머지
 - **커밋:** Conventional Commits (`feat: add OTP verify endpoint`)
 
