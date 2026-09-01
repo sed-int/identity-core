@@ -38,7 +38,7 @@ type App struct {
 }
 
 func New(ctx context.Context, cfg config.Config, log zerolog.Logger) (*App, error) {
-	db, err := openMySQL(ctx, cfg.MySQLDSN)
+	db, err := openMySQL(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +51,14 @@ func New(ctx context.Context, cfg config.Config, log zerolog.Logger) (*App, erro
 
 	// The ONLY link to the identity service: its public keys over HTTP, and
 	// its events over the stream — never its database or its APIs.
-	verifier := jwks.New(cfg.JWKSURL, cfg.Issuer, cfg.Audience)
+	verifier := jwks.New(cfg.JWKSURL, cfg.Issuer, cfg.Audience, jwks.Options{
+		CacheTTL:        cfg.JWKSCacheTTL,
+		RefreshCooldown: cfg.JWKSRefreshCooldown,
+		BreakerTimeout:  cfg.JWKSBreakerTimeout,
+		OnStateChange: func(name, from, to string) {
+			log.Warn().Str("breaker", name).Str("from", from).Str("to", to).Msg("circuit breaker state changed")
+		},
+	})
 	board := usecase.NewBoard(mysqlrepo.NewPostRepo(db))
 
 	gwMux := runtime.NewServeMux()
@@ -112,11 +119,14 @@ func (a *App) Run(ctx context.Context) error {
 	return err
 }
 
-func openMySQL(ctx context.Context, dsn string) (*sql.DB, error) {
-	db, err := sql.Open("mysql", dsn)
+func openMySQL(ctx context.Context, cfg config.Config) (*sql.DB, error) {
+	db, err := sql.Open("mysql", cfg.MySQLDSN)
 	if err != nil {
 		return nil, err
 	}
+	db.SetMaxOpenConns(cfg.DBMaxOpenConns)
+	db.SetMaxIdleConns(cfg.DBMaxIdleConns)
+	db.SetConnMaxLifetime(cfg.DBConnMaxLifetime)
 	if err := db.PingContext(ctx); err != nil {
 		db.Close()
 		return nil, err
