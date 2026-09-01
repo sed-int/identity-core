@@ -187,7 +187,7 @@ make web-dev      # Vite 개발 서버 → http://localhost:5173
 make web-test     # vitest (API 클라이언트 단위 테스트)
 ```
 
-> **포트:** identity HTTP `:8090` / gRPC `:9090`, board HTTP `:8091` / gRPC 호스트 `:9092`(컨테이너 내부 9091),
+> **포트:** identity HTTP `:8090` / gRPC `:9090`, board HTTP `:8091` / gRPC `:9091`,
 > MySQL 호스트 `:3307`(컨테이너 내부 3306), Redis 호스트 `:6380`(컨테이너 내부 6379)
 >
 > **DEV_MODE:** PoC 기본값 `true` — mock SMS의 OTP 코드가 `debug_code` 필드로 응답에 포함됩니다. 실환경 금지.

@@ -15,6 +15,9 @@ frontend/dist/
 web/node_modules/
 web/dist/
 
+# Phase 7 benchmark output (machine-local measurements)
+artifacts/benchmarks/
+
 # Editor / OS
 .idea/
 .vscode/

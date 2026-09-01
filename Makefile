@@ -8,7 +8,7 @@ BOARD_DSN    ?= mysql://root:root@tcp(localhost:3307)/board
 IDENTITY_MIGRATIONS := services/identity/db/migrations
 BOARD_MIGRATIONS    := services/board/db/migrations
 
-.PHONY: install-tools proto migrate-up migrate-down run stop logs test build web-dev web-test
+.PHONY: install-tools proto migrate-up migrate-down run stop logs test integration build web-dev web-test e2e loadtest loadtest-short benchmark-verifier
 
 ## install-tools: install buf + protoc plugins (pinned) into GOPATH/bin
 install-tools:
@@ -48,9 +48,29 @@ build:
 test:
 	go test ./...
 
+## integration: repository tests against ephemeral MySQL 8 testcontainers
+integration:
+	go test -tags=integration ./services/identity/internal/repo/mysql ./services/board/internal/repo/mysql
+
 ## web-dev / web-test: frontend dev server / unit tests (run `npm install` in web/ once first)
 web-dev:
 	cd web && npm run dev
 
 web-test:
 	cd web && npm run test
+
+## e2e: deterministic Phase 7 signup -> login -> refresh -> post scenario
+e2e:
+	./scripts/e2e.sh
+
+## loadtest: full Phase 7 k6 matrix (B1-B6); writes artifacts/benchmarks/
+loadtest:
+	./loadtest/run.sh
+
+## loadtest-short: validation-sized matrix for harness development/CI
+loadtest-short:
+	SHORT=1 ./loadtest/run.sh
+
+## benchmark-verifier: warm-cache, in-process RS256 verification capacity
+benchmark-verifier:
+	go test -run '^$$' -bench BenchmarkVerifyWarmCache -benchmem ./pkg/jwks
