@@ -3,6 +3,8 @@ package rtr
 import (
 	"context"
 	"errors"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/alicebob/miniredis/v2"
@@ -13,6 +15,54 @@ func testStore(t *testing.T) *Store {
 	t.Helper()
 	mr := miniredis.RunT(t)
 	return NewStore(redis.NewClient(&redis.Options{Addr: mr.Addr()}))
+}
+
+func TestConcurrentReuseAllowsOneRotationThenRevokesFamily(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	tok, err := s.Issue(ctx, 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const callers = 32
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	var successes atomic.Int32
+	var reuses atomic.Int32
+	var winnerMu sync.Mutex
+	var winner string
+	for range callers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			rotated, _, err := s.Rotate(ctx, tok)
+			switch {
+			case err == nil:
+				successes.Add(1)
+				winnerMu.Lock()
+				winner = rotated
+				winnerMu.Unlock()
+			case errors.Is(err, ErrReuseDetected), errors.Is(err, ErrInvalidToken):
+				reuses.Add(1)
+			default:
+				t.Errorf("unexpected rotate error: %v", err)
+			}
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	if got := successes.Load(); got != 1 {
+		t.Fatalf("successful concurrent rotations = %d, want 1", got)
+	}
+	if got := reuses.Load(); got != callers-1 {
+		t.Fatalf("rejected concurrent rotations = %d, want %d", got, callers-1)
+	}
+	if _, _, err := s.Rotate(ctx, winner); !errors.Is(err, ErrInvalidToken) {
+		t.Fatalf("winning token survived family revocation: %v", err)
+	}
 }
 
 func TestIssueAndRotate(t *testing.T) {

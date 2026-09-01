@@ -1,8 +1,9 @@
 // Package rtr implements Refresh Token Rotation with reuse detection (PRD §4.3).
 //
 // Redis layout:
-//   rt:token:<token>   → JSON{user_id, family}         (TTL = refresh TTL)
-//   rt:family:<family> → the family's CURRENT token    (TTL = refresh TTL)
+//
+//	rt:token:<token>   → JSON{user_id, family}         (TTL = refresh TTL)
+//	rt:family:<family> → the family's CURRENT token    (TTL = refresh TTL)
 //
 // Presenting a token that exists but is no longer its family's current one
 // means the token was stolen-and-rotated (or replayed) — the whole family is
@@ -25,6 +26,24 @@ var (
 	ErrInvalidToken  = errors.New("invalid refresh token")
 	ErrReuseDetected = errors.New("refresh token reuse detected; family revoked")
 )
+
+// rotateScript makes the compare-and-swap and family revocation atomic. A
+// WATCH/transaction loop would also work, but the script keeps the security
+// decision in one Redis operation under a reuse flood.
+var rotateScript = redis.NewScript(`
+local current = redis.call("GET", KEYS[3])
+if not current then
+  return -1
+end
+if current ~= ARGV[1] then
+  redis.call("DEL", KEYS[3])
+  redis.call("DEL", ARGV[5] .. current)
+  return 0
+end
+redis.call("SET", KEYS[2], ARGV[2], "PX", ARGV[4])
+redis.call("SET", KEYS[3], ARGV[3], "PX", ARGV[4])
+return 1
+`)
 
 const RefreshTokenTTL = 14 * 24 * time.Hour // PRD §4.3
 
@@ -77,25 +96,30 @@ func (s *Store) Rotate(ctx context.Context, oldToken string) (newToken string, u
 		return "", 0, err
 	}
 
-	current, err := s.rdb.Get(ctx, familyKey(rec.Family)).Result()
-	if err != nil && !errors.Is(err, redis.Nil) {
-		return "", 0, err
-	}
-	if current != oldToken {
-		// Reuse: this token was already rotated out. Kill the family.
-		if rmErr := s.RevokeFamily(ctx, rec.Family, current); rmErr != nil {
-			return "", 0, fmt.Errorf("revoking reused family: %w", rmErr)
-		}
-		return "", 0, ErrReuseDetected
-	}
-
 	newTok := newOpaqueToken()
-	if err := s.save(ctx, newTok, rec.Family, rec.UserID); err != nil {
+	newRaw, err := json.Marshal(record{UserID: rec.UserID, Family: rec.Family})
+	if err != nil {
 		return "", 0, err
 	}
-	// Old token stays resolvable (without being current) so reuse is DETECTED
-	// rather than looking like an unknown token; it expires with its TTL.
-	return newTok, rec.UserID, nil
+	result, err := rotateScript.Run(ctx, s.rdb,
+		[]string{tokenKey(oldToken), tokenKey(newTok), familyKey(rec.Family)},
+		oldToken, string(newRaw), newTok, s.ttl.Milliseconds(), "rt:token:",
+	).Int()
+	if err != nil {
+		return "", 0, err
+	}
+	switch result {
+	case 1:
+		// Old token stays resolvable (without being current) so reuse is
+		// DETECTED rather than looking like an unknown token.
+		return newTok, rec.UserID, nil
+	case 0:
+		return "", 0, ErrReuseDetected
+	case -1:
+		return "", 0, ErrInvalidToken
+	default:
+		return "", 0, fmt.Errorf("unexpected RTR script result: %d", result)
+	}
 }
 
 // RevokeFamily deletes a family and any tokens passed alongside it (logout / reuse).
