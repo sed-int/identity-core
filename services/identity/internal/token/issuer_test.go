@@ -41,6 +41,10 @@ func TestAccessTokenRoundtrip(t *testing.T) {
 	if parsed.Header["kid"] != iss.kid {
 		t.Fatalf("kid missing from header: %v", parsed.Header)
 	}
+	userID, err := iss.VerifyAccessToken(tok)
+	if err != nil || userID != 42 {
+		t.Fatalf("VerifyAccessToken: userID=%d err=%v", userID, err)
+	}
 }
 
 func TestFlowTokenPurposeIsEnforced(t *testing.T) {
@@ -66,6 +70,9 @@ func TestFlowTokenPurposeIsEnforced(t *testing.T) {
 		jwt.WithAudience("board"),
 	); err == nil {
 		t.Fatal("flow token accepted with aud=board")
+	}
+	if _, err := iss.VerifyAccessToken(tok); !errors.Is(err, ErrInvalidAccessToken) {
+		t.Fatalf("flow token accepted by VerifyAccessToken: %v", err)
 	}
 }
 

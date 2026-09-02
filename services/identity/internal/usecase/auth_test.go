@@ -22,23 +22,29 @@ import (
 
 // fakeRepo is an in-memory UserRepo.
 type fakeRepo struct {
-	users   map[int64]*domain.User
-	phones  map[string]int64 // phone → user id
-	devices map[string]bool  // "userID:fingerprint" → known
-	nextID  int64
+	users    map[int64]*domain.User
+	profiles map[int64]*domain.Profile
+	phones   map[string]int64 // phone → user id
+	devices  map[string]bool  // "userID:fingerprint" → known
+	nextID   int64
 }
 
 func newFakeRepo() *fakeRepo {
-	return &fakeRepo{users: map[int64]*domain.User{}, phones: map[string]int64{}, devices: map[string]bool{}, nextID: 1}
+	return &fakeRepo{
+		users: map[int64]*domain.User{}, profiles: map[int64]*domain.Profile{},
+		phones: map[string]int64{}, devices: map[string]bool{}, nextID: 1,
+	}
 }
 
 func devKey(userID int64, fp string) string { return strconv.FormatInt(userID, 10) + ":" + fp }
 
-func (f *fakeRepo) CreateUser(_ context.Context, phone string, _ domain.Profile, status domain.Status) (*domain.User, error) {
+func (f *fakeRepo) CreateUser(_ context.Context, phone string, profile domain.Profile, status domain.Status) (*domain.User, error) {
 	id := f.nextID
 	f.nextID++
 	u := &domain.User{ID: id, Status: status, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	f.users[id] = u
+	profile.UserID = id
+	f.profiles[id] = &profile
 	f.phones[phone] = id
 	return u, nil
 }
@@ -60,7 +66,11 @@ func (f *fakeRepo) FindByID(_ context.Context, userID int64) (*domain.User, erro
 }
 
 func (f *fakeRepo) GetProfile(_ context.Context, userID int64) (*domain.Profile, error) {
-	return &domain.Profile{UserID: userID, Nickname: "nick"}, nil
+	profile, ok := f.profiles[userID]
+	if !ok {
+		return nil, domain.ErrUserNotFound
+	}
+	return profile, nil
 }
 
 func (f *fakeRepo) TouchLastLogin(context.Context, int64) error { return nil }
@@ -233,5 +243,34 @@ func TestFlowTokenPurposeIsEnforced(t *testing.T) {
 	// A device_verify token must not complete a reactivation, and vice versa.
 	if _, err := a.CompleteReactivation(context.Background(), res.FlowToken, true, "dev-b", "other"); !errors.Is(err, token.ErrInvalidFlowToken) {
 		t.Fatalf("cross-purpose: want ErrInvalidFlowToken, got %v", err)
+	}
+}
+
+func TestSignupPersistsProfileAndGetCurrentUser(t *testing.T) {
+	a, repo := newTestAuth(t)
+	res := login(t, a, "+82105551234", "dev-profile", "test-device")
+	pair, err := a.CompleteSignup(
+		context.Background(), res.FlowToken, "Hana", "https://example.com/hana.jpg", "dev-profile", "test-device",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	current, err := a.GetCurrentUser(context.Background(), pair.AccessToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current.Nickname != "Hana" || current.ProfileImageURL != "https://example.com/hana.jpg" {
+		t.Fatalf("profile was not preserved: %+v", current)
+	}
+	if current.UserID != repo.phones["+82105551234"] || current.Status != domain.StatusActive {
+		t.Fatalf("unexpected account data: %+v", current)
+	}
+}
+
+func TestGetCurrentUserRejectsInvalidAccessToken(t *testing.T) {
+	a, _ := newTestAuth(t)
+	if _, err := a.GetCurrentUser(context.Background(), "not-a-token"); !errors.Is(err, token.ErrInvalidAccessToken) {
+		t.Fatalf("want ErrInvalidAccessToken, got %v", err)
 	}
 }

@@ -5,9 +5,11 @@ package grpc
 import (
 	"context"
 	"errors"
+	"strconv"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	identityv1 "identity-service/api/gen/identity/v1"
 	"identity-service/services/identity/internal/devverify"
@@ -103,6 +105,25 @@ func (h *Handler) IssueToken(ctx context.Context, req *identityv1.IssueTokenRequ
 	}, nil
 }
 
+func (h *Handler) GetCurrentUser(ctx context.Context, _ *identityv1.GetCurrentUserRequest) (*identityv1.GetCurrentUserResponse, error) {
+	accessToken := bearerToken(ctx)
+	if accessToken == "" {
+		return nil, status.Error(codes.Unauthenticated, "missing bearer token")
+	}
+	user, err := h.auth.GetCurrentUser(ctx, accessToken)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return &identityv1.GetCurrentUserResponse{
+		UserId:          strconv.FormatInt(user.UserID, 10),
+		Status:          string(user.Status),
+		CreatedAt:       timestamppb.New(user.CreatedAt),
+		Nickname:        user.Nickname,
+		ProfileImageUrl: user.ProfileImageURL,
+		ReputationScore: user.ReputationScore,
+	}, nil
+}
+
 func toProtoTokens(t *usecase.TokenPair) *identityv1.TokenPair {
 	if t == nil {
 		return nil
@@ -124,7 +145,8 @@ func mapErr(err error) error {
 		errors.Is(err, otp.ErrTooManyAttempts),
 		errors.Is(err, rtr.ErrInvalidToken),
 		errors.Is(err, rtr.ErrReuseDetected),
-		errors.Is(err, token.ErrInvalidFlowToken):
+		errors.Is(err, token.ErrInvalidFlowToken),
+		errors.Is(err, token.ErrInvalidAccessToken):
 		return status.Error(codes.Unauthenticated, err.Error())
 	case errors.Is(err, usecase.ErrConsentRequired):
 		return status.Error(codes.InvalidArgument, err.Error())

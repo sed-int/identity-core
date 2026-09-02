@@ -25,6 +25,7 @@ const (
 	IdentityService_CompleteReactivation_FullMethodName = "/identity.v1.IdentityService/CompleteReactivation"
 	IdentityService_VerifyDevice_FullMethodName         = "/identity.v1.IdentityService/VerifyDevice"
 	IdentityService_IssueToken_FullMethodName           = "/identity.v1.IdentityService/IssueToken"
+	IdentityService_GetCurrentUser_FullMethodName       = "/identity.v1.IdentityService/GetCurrentUser"
 )
 
 // IdentityServiceClient is the client API for IdentityService service.
@@ -58,6 +59,9 @@ type IdentityServiceClient interface {
 	// OAuth2-style token endpoint. Supported grant_type: "refresh_token"
 	// (Refresh Token Rotation — PRD §4.3).
 	IssueToken(ctx context.Context, in *IssueTokenRequest, opts ...grpc.CallOption) (*IssueTokenResponse, error)
+	// Returns the authenticated user's account and display-profile data. The
+	// phone credential remains private and is deliberately not exposed here.
+	GetCurrentUser(ctx context.Context, in *GetCurrentUserRequest, opts ...grpc.CallOption) (*GetCurrentUserResponse, error)
 }
 
 type identityServiceClient struct {
@@ -128,6 +132,16 @@ func (c *identityServiceClient) IssueToken(ctx context.Context, in *IssueTokenRe
 	return out, nil
 }
 
+func (c *identityServiceClient) GetCurrentUser(ctx context.Context, in *GetCurrentUserRequest, opts ...grpc.CallOption) (*GetCurrentUserResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCurrentUserResponse)
+	err := c.cc.Invoke(ctx, IdentityService_GetCurrentUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // IdentityServiceServer is the server API for IdentityService service.
 // All implementations must embed UnimplementedIdentityServiceServer
 // for forward compatibility.
@@ -159,6 +173,9 @@ type IdentityServiceServer interface {
 	// OAuth2-style token endpoint. Supported grant_type: "refresh_token"
 	// (Refresh Token Rotation — PRD §4.3).
 	IssueToken(context.Context, *IssueTokenRequest) (*IssueTokenResponse, error)
+	// Returns the authenticated user's account and display-profile data. The
+	// phone credential remains private and is deliberately not exposed here.
+	GetCurrentUser(context.Context, *GetCurrentUserRequest) (*GetCurrentUserResponse, error)
 	mustEmbedUnimplementedIdentityServiceServer()
 }
 
@@ -186,6 +203,9 @@ func (UnimplementedIdentityServiceServer) VerifyDevice(context.Context, *VerifyD
 }
 func (UnimplementedIdentityServiceServer) IssueToken(context.Context, *IssueTokenRequest) (*IssueTokenResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method IssueToken not implemented")
+}
+func (UnimplementedIdentityServiceServer) GetCurrentUser(context.Context, *GetCurrentUserRequest) (*GetCurrentUserResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCurrentUser not implemented")
 }
 func (UnimplementedIdentityServiceServer) mustEmbedUnimplementedIdentityServiceServer() {}
 func (UnimplementedIdentityServiceServer) testEmbeddedByValue()                         {}
@@ -316,6 +336,24 @@ func _IdentityService_IssueToken_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _IdentityService_GetCurrentUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCurrentUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IdentityServiceServer).GetCurrentUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IdentityService_GetCurrentUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IdentityServiceServer).GetCurrentUser(ctx, req.(*GetCurrentUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // IdentityService_ServiceDesc is the grpc.ServiceDesc for IdentityService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -346,6 +384,10 @@ var IdentityService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "IssueToken",
 			Handler:    _IdentityService_IssueToken_Handler,
+		},
+		{
+			MethodName: "GetCurrentUser",
+			Handler:    _IdentityService_GetCurrentUser_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

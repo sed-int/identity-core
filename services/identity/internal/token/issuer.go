@@ -4,13 +4,17 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
 
-var ErrInvalidFlowToken = errors.New("invalid flow token")
+var (
+	ErrInvalidFlowToken   = errors.New("invalid flow token")
+	ErrInvalidAccessToken = errors.New("invalid access token")
+)
 
 // Flow token purposes (which multi-step flow a token may continue).
 const (
@@ -103,4 +107,28 @@ func (i *Issuer) VerifyFlowToken(tokenStr, wantPurpose string) (subject string, 
 		return "", ErrInvalidFlowToken
 	}
 	return sub, nil
+}
+
+// VerifyAccessToken verifies an Identity-issued Board access token and returns
+// its numeric subject for Identity-owned authenticated endpoints such as /me.
+func (i *Issuer) VerifyAccessToken(tokenStr string) (int64, error) {
+	parsed, err := jwt.Parse(tokenStr,
+		func(t *jwt.Token) (any, error) { return &i.key.PublicKey, nil },
+		jwt.WithValidMethods([]string{"RS256"}),
+		jwt.WithAudience("board"),
+		jwt.WithIssuer(i.issuer),
+		jwt.WithExpirationRequired(),
+	)
+	if err != nil || !parsed.Valid {
+		return 0, ErrInvalidAccessToken
+	}
+	sub, err := parsed.Claims.GetSubject()
+	if err != nil || sub == "" {
+		return 0, ErrInvalidAccessToken
+	}
+	userID, err := strconv.ParseInt(sub, 10, 64)
+	if err != nil || userID <= 0 {
+		return 0, ErrInvalidAccessToken
+	}
+	return userID, nil
 }

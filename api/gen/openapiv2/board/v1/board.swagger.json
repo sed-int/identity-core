@@ -85,9 +85,88 @@
           "BoardService"
         ]
       }
+    },
+    "/board/v1/posts/{id}": {
+      "delete": {
+        "operationId": "BoardService_DeletePost",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1DeletePostResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "int64"
+          }
+        ],
+        "tags": [
+          "BoardService"
+        ]
+      },
+      "patch": {
+        "operationId": "BoardService_UpdatePost",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1UpdatePostResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/BoardServiceUpdatePostBody"
+            }
+          }
+        ],
+        "tags": [
+          "BoardService"
+        ]
+      }
     }
   },
   "definitions": {
+    "BoardServiceUpdatePostBody": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        }
+      }
+    },
     "protobufAny": {
       "type": "object",
       "properties": {
@@ -135,6 +214,9 @@
         }
       }
     },
+    "v1DeletePostResponse": {
+      "type": "object"
+    },
     "v1ListPostsResponse": {
       "type": "object",
       "properties": {
@@ -176,6 +258,14 @@
         "authorNickname": {
           "type": "string",
           "description": "Resolved from the board's local read model, replicated from\n`user.created` events — never by querying the identity service."
+        }
+      }
+    },
+    "v1UpdatePostResponse": {
+      "type": "object",
+      "properties": {
+        "post": {
+          "$ref": "#/definitions/v1Post"
         }
       }
     }

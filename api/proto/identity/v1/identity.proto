@@ -3,6 +3,7 @@ syntax = "proto3";
 package identity.v1;
 
 import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
 
 option go_package = "identity-service/api/gen/identity/v1;identityv1";
 
@@ -66,6 +67,12 @@ service IdentityService {
       post: "/oauth2/v1/token"
       body: "*"
     };
+  }
+
+  // Returns the authenticated user's account and display-profile data. The
+  // phone credential remains private and is deliberately not exposed here.
+  rpc GetCurrentUser(GetCurrentUserRequest) returns (GetCurrentUserResponse) {
+    option (google.api.http) = {get: "/auth/v1/me"};
   }
 }
 
@@ -156,4 +163,15 @@ message TokenPair {
   string refresh_token = 3;
   string token_type = 4;
   int32 expires_in = 5;
+}
+
+message GetCurrentUserRequest {}
+
+message GetCurrentUserResponse {
+  string user_id = 1;
+  string status = 2;
+  google.protobuf.Timestamp created_at = 3;
+  string nickname = 4;
+  string profile_image_url = 5;
+  double reputation_score = 6;
 }

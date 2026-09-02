@@ -73,3 +73,36 @@ func (r *PostRepo) List(ctx context.Context, after int64, limit int) ([]*domain.
 	}
 	return posts, rows.Err()
 }
+
+func (r *PostRepo) Update(ctx context.Context, post *domain.Post) (*domain.Post, error) {
+	res, err := r.db.ExecContext(ctx,
+		`UPDATE posts SET title = ?, content = ? WHERE id = ? AND author_id = ?`,
+		post.Title, post.Content, post.ID, post.AuthorID)
+	if err != nil {
+		return nil, fmt.Errorf("update post: %w", err)
+	}
+	count, err := res.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+	if count == 0 {
+		return nil, domain.ErrPostNotFound
+	}
+	return r.FindByID(ctx, post.ID)
+}
+
+func (r *PostRepo) Delete(ctx context.Context, id int64, authorID string) error {
+	res, err := r.db.ExecContext(ctx,
+		`DELETE FROM posts WHERE id = ? AND author_id = ?`, id, authorID)
+	if err != nil {
+		return fmt.Errorf("delete post: %w", err)
+	}
+	count, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return domain.ErrPostNotFound
+	}
+	return nil
+}

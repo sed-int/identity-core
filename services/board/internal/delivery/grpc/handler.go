@@ -60,6 +60,29 @@ func (h *Handler) ListPosts(ctx context.Context, req *boardv1.ListPostsRequest) 
 	return resp, nil
 }
 
+func (h *Handler) UpdatePost(ctx context.Context, req *boardv1.UpdatePostRequest) (*boardv1.UpdatePostResponse, error) {
+	claims, ok := ClaimsFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing claims")
+	}
+	post, err := h.board.UpdatePost(ctx, claims.Subject, req.GetId(), req.GetTitle(), req.GetContent())
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return &boardv1.UpdatePostResponse{Post: toProto(post)}, nil
+}
+
+func (h *Handler) DeletePost(ctx context.Context, req *boardv1.DeletePostRequest) (*boardv1.DeletePostResponse, error) {
+	claims, ok := ClaimsFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing claims")
+	}
+	if err := h.board.DeletePost(ctx, claims.Subject, req.GetId()); err != nil {
+		return nil, mapErr(err)
+	}
+	return &boardv1.DeletePostResponse{}, nil
+}
+
 func toProto(p *domain.Post) *boardv1.Post {
 	return &boardv1.Post{
 		Id:             p.ID,

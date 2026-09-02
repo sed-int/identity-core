@@ -19,6 +19,8 @@ type claimsKey struct{}
 // ListPosts stays public.
 var methodsRequiringAuth = map[string]bool{
 	boardv1.BoardService_CreatePost_FullMethodName: true,
+	boardv1.BoardService_UpdatePost_FullMethodName: true,
+	boardv1.BoardService_DeletePost_FullMethodName: true,
 }
 
 // AuthInterceptor verifies Bearer tokens statelessly via the JWKS verifier

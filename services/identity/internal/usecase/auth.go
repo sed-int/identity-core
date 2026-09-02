@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/rs/zerolog"
 
@@ -55,6 +56,15 @@ type VerifyResult struct {
 	NextStep  NextStep
 	Tokens    *TokenPair
 	FlowToken string
+}
+
+type CurrentUser struct {
+	UserID          int64
+	Status          domain.Status
+	CreatedAt       time.Time
+	Nickname        string
+	ProfileImageURL string
+	ReputationScore float64
 }
 
 type Auth struct {
@@ -272,6 +282,34 @@ func (a *Auth) Refresh(ctx context.Context, grantType, refreshToken string) (*To
 	}
 	pair.RefreshToken = newRefresh
 	return pair, nil
+}
+
+// GetCurrentUser verifies the caller's access token and returns Identity-owned
+// account/display data without exposing the private phone credential.
+func (a *Auth) GetCurrentUser(ctx context.Context, accessToken string) (*CurrentUser, error) {
+	userID, err := a.issuer.VerifyAccessToken(accessToken)
+	if err != nil {
+		return nil, err
+	}
+	user, err := a.repo.FindByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if user.Status != domain.StatusActive {
+		return nil, fmt.Errorf("%w: %s", domain.ErrLoginNotAllowed, user.Status)
+	}
+	profile, err := a.repo.GetProfile(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return &CurrentUser{
+		UserID:          user.ID,
+		Status:          user.Status,
+		CreatedAt:       user.CreatedAt,
+		Nickname:        profile.Nickname,
+		ProfileImageURL: profile.ProfileImageURL,
+		ReputationScore: profile.ReputationScore,
+	}, nil
 }
 
 func (a *Auth) issueTokens(ctx context.Context, user *domain.User) (*TokenPair, error) {

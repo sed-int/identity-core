@@ -49,6 +49,29 @@
         ]
       }
     },
+    "/auth/v1/me": {
+      "get": {
+        "summary": "Returns the authenticated user's account and display-profile data. The\nphone credential remains private and is deliberately not exposed here.",
+        "operationId": "IdentityService_GetCurrentUser",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetCurrentUserResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "IdentityService"
+        ]
+      }
+    },
     "/auth/v1/otp/request": {
       "post": {
         "summary": "Sends an OTP to the given phone number (mock SMS in the PoC: the code is\nlogged by the server, and echoed in debug_code when dev mode is on).",
@@ -297,6 +320,31 @@
       "properties": {
         "tokens": {
           "$ref": "#/definitions/v1TokenPair"
+        }
+      }
+    },
+    "v1GetCurrentUserResponse": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "nickname": {
+          "type": "string"
+        },
+        "profileImageUrl": {
+          "type": "string"
+        },
+        "reputationScore": {
+          "type": "number",
+          "format": "double"
         }
       }
     },

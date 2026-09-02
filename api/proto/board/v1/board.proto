@@ -21,6 +21,17 @@ service BoardService {
   rpc ListPosts(ListPostsRequest) returns (ListPostsResponse) {
     option (google.api.http) = {get: "/board/v1/posts"};
   }
+
+  rpc UpdatePost(UpdatePostRequest) returns (UpdatePostResponse) {
+    option (google.api.http) = {
+      patch: "/board/v1/posts/{id}"
+      body: "*"
+    };
+  }
+
+  rpc DeletePost(DeletePostRequest) returns (DeletePostResponse) {
+    option (google.api.http) = {delete: "/board/v1/posts/{id}"};
+  }
 }
 
 message Post {
@@ -52,3 +63,19 @@ message ListPostsResponse {
   repeated Post posts = 1;
   int64 next_page_after = 2; // 0 when no more pages
 }
+
+message UpdatePostRequest {
+  int64 id = 1;
+  string title = 2;
+  string content = 3;
+}
+
+message UpdatePostResponse {
+  Post post = 1;
+}
+
+message DeletePostRequest {
+  int64 id = 1;
+}
+
+message DeletePostResponse {}
