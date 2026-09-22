@@ -9,6 +9,9 @@ bin/
 *.test
 coverage.out
 
+# Machine-local load-test measurements
+artifacts/benchmarks/
+
 # Node / frontend
 node_modules/
 frontend/dist/
