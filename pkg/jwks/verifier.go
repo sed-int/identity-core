@@ -14,6 +14,7 @@ import (
 	"math/big"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -36,8 +37,10 @@ type Options struct {
 	RefreshCooldown time.Duration
 	// CacheTTL marks the cache stale, triggering a best-effort background
 	// refresh on the next Verify. Stale keys are still USED if refresh fails.
-	CacheTTL   time.Duration
-	HTTPClient *http.Client
+	CacheTTL       time.Duration
+	BreakerTimeout time.Duration
+	HTTPClient     *http.Client
+	OnStateChange  func(name, from, to string)
 }
 
 type Verifier struct {
@@ -51,10 +54,24 @@ type Verifier struct {
 	keys            map[string]*rsa.PublicKey
 	fetchedAt       time.Time
 	lastMissRefresh time.Time // last refetch triggered by an unknown kid
+	fetchAttempts   atomic.Uint64
+	fetchSuccesses  atomic.Uint64
+	fetchFailures   atomic.Uint64
+}
+
+// Stats is a safe diagnostic snapshot used by the Phase 7 resilience harness.
+// It exposes no keys or token material.
+type Stats struct {
+	KeyCount            int       `json:"key_count"`
+	LastSuccessfulFetch time.Time `json:"last_successful_fetch"`
+	FetchAttempts       uint64    `json:"fetch_attempts"`
+	FetchSuccesses      uint64    `json:"fetch_successes"`
+	FetchFailures       uint64    `json:"fetch_failures"`
+	BreakerState        string    `json:"breaker_state"`
 }
 
 func New(jwksURL, issuer, audience string, opts ...Options) *Verifier {
-	o := Options{RefreshCooldown: 10 * time.Second, CacheTTL: 5 * time.Minute}
+	o := Options{RefreshCooldown: 10 * time.Second, CacheTTL: 5 * time.Minute, BreakerTimeout: 60 * time.Second}
 	if len(opts) > 0 {
 		if opts[0].RefreshCooldown > 0 {
 			o.RefreshCooldown = opts[0].RefreshCooldown
@@ -62,7 +79,11 @@ func New(jwksURL, issuer, audience string, opts ...Options) *Verifier {
 		if opts[0].CacheTTL > 0 {
 			o.CacheTTL = opts[0].CacheTTL
 		}
+		if opts[0].BreakerTimeout > 0 {
+			o.BreakerTimeout = opts[0].BreakerTimeout
+		}
 		o.HTTPClient = opts[0].HTTPClient
+		o.OnStateChange = opts[0].OnStateChange
 	}
 	if o.HTTPClient == nil {
 		o.HTTPClient = &http.Client{Timeout: 3 * time.Second}
@@ -72,10 +93,18 @@ func New(jwksURL, issuer, audience string, opts ...Options) *Verifier {
 		issuer:   issuer,
 		audience: audience,
 		opts:     o,
-		breaker: gobreaker.NewCircuitBreaker[map[string]*rsa.PublicKey](gobreaker.Settings{
-			Name: "jwks-fetch",
-		}),
+		breaker:  gobreaker.NewCircuitBreaker[map[string]*rsa.PublicKey](breakerSettings(o)),
 	}
+}
+
+func breakerSettings(o Options) gobreaker.Settings {
+	settings := gobreaker.Settings{Name: "jwks-fetch", Timeout: o.BreakerTimeout}
+	if o.OnStateChange != nil {
+		settings.OnStateChange = func(name string, from, to gobreaker.State) {
+			o.OnStateChange(name, from.String(), to.String())
+		}
+	}
+	return settings
 }
 
 // Verify checks signature, expiry, issuer and audience, returning the claims.
@@ -112,6 +141,20 @@ func (v *Verifier) Verify(ctx context.Context, tokenStr string) (*Claims, error)
 	}
 	status, _ := claims["status"].(string)
 	return &Claims{Subject: sub, Status: status}, nil
+}
+
+func (v *Verifier) Stats() Stats {
+	v.mu.RLock()
+	keyCount, fetchedAt := len(v.keys), v.fetchedAt
+	v.mu.RUnlock()
+	return Stats{
+		KeyCount:            keyCount,
+		LastSuccessfulFetch: fetchedAt,
+		FetchAttempts:       v.fetchAttempts.Load(),
+		FetchSuccesses:      v.fetchSuccesses.Load(),
+		FetchFailures:       v.fetchFailures.Load(),
+		BreakerState:        v.breaker.State().String(),
+	}
 }
 
 // keyFor returns the cached key for kid, refetching once (rate-limited) when
@@ -160,12 +203,15 @@ func (v *Verifier) refreshIfStale(ctx context.Context) {
 
 // refresh fetches the JWKS through the circuit breaker and swaps the cache.
 func (v *Verifier) refresh(ctx context.Context) error {
+	v.fetchAttempts.Add(1)
 	keys, err := v.breaker.Execute(func() (map[string]*rsa.PublicKey, error) {
 		return fetchJWKS(ctx, v.opts.HTTPClient, v.jwksURL)
 	})
 	if err != nil {
+		v.fetchFailures.Add(1)
 		return err
 	}
+	v.fetchSuccesses.Add(1)
 
 	v.mu.Lock()
 	v.keys = keys

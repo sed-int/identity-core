@@ -1,0 +1,9 @@
+.git
+.gitignore
+AGENTS.md
+CLAUDE.md
+artifacts/
+web/node_modules/
+web/dist/
+*.test
+coverage.out

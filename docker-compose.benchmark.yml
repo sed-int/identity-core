@@ -1,0 +1,50 @@
+services:
+  board-bench-a:
+    build:
+      context: .
+      dockerfile: services/board/Dockerfile
+    environment: &board-benchmark-env
+      MYSQL_DSN: root:root@tcp(mysql:3306)/board?parseTime=true
+      REDIS_ADDR: redis:6379
+      JWKS_URL: http://identity:8090/oauth2/v1/jwks
+      TOKEN_ISSUER: http://localhost:8090
+      TOKEN_AUDIENCE: board
+      JWKS_REFRESH_COOLDOWN: 1ms
+      JWKS_BREAKER_TIMEOUT: 2s
+      DB_MAX_OPEN_CONNS: 40
+      DB_MAX_IDLE_CONNS: 10
+    depends_on:
+      mysql:
+        condition: service_healthy
+      identity:
+        condition: service_healthy
+
+  board-bench-b:
+    build:
+      context: .
+      dockerfile: services/board/Dockerfile
+    environment: *board-benchmark-env
+    depends_on:
+      mysql:
+        condition: service_healthy
+      identity:
+        condition: service_healthy
+
+  board-lb-one:
+    image: nginx:1.27-alpine
+    ports:
+      - "18091:8080"
+    volumes:
+      - ./loadtest/nginx-one.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - board-bench-a
+
+  board-lb-two:
+    image: nginx:1.27-alpine
+    ports:
+      - "18092:8080"
+    volumes:
+      - ./loadtest/nginx-two.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - board-bench-a
+      - board-bench-b

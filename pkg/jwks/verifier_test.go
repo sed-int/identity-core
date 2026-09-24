@@ -106,6 +106,13 @@ func TestVerifyRoundtrip(t *testing.T) {
 	if claims.Subject != "42" || claims.Status != "ACTIVE" {
 		t.Fatalf("unexpected claims: %+v", claims)
 	}
+	stats := v.Stats()
+	if stats.KeyCount != 1 || stats.FetchAttempts != 1 || stats.FetchSuccesses != 1 || stats.FetchFailures != 0 {
+		t.Fatalf("unexpected stats: %+v", stats)
+	}
+	if stats.BreakerState != "closed" || stats.LastSuccessfulFetch.IsZero() {
+		t.Fatalf("unexpected breaker/cache stats: %+v", stats)
+	}
 }
 
 func TestRejectsGarbageWrongAudienceAndExpired(t *testing.T) {

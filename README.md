@@ -187,7 +187,7 @@ make web-dev      # Vite 개발 서버 → http://localhost:5173
 make web-test     # vitest (API 클라이언트 단위 테스트)
 ```
 
-> **포트:** identity HTTP `:8090` / gRPC `:9090`, board HTTP `:8091` / gRPC 호스트 `:9092`(컨테이너 내부 9091),
+> **포트:** identity HTTP `:8090` / gRPC `:9090`, board HTTP `:8091` / gRPC `:9091`,
 > MySQL 호스트 `:3307`(컨테이너 내부 3306), Redis 호스트 `:6380`(컨테이너 내부 6379)
 >
 > **DEV_MODE:** PoC 기본값 `true` — mock SMS의 OTP 코드가 `debug_code` 필드로 응답에 포함됩니다. 실환경 금지.
@@ -232,11 +232,12 @@ Swagger 스펙은 `api/gen/openapiv2/`에 생성됩니다.
 
 ```bash
 make test    # 단위 테스트 전체
+make integration # MySQL 8 testcontainers 레포지토리 통합 테스트
 ```
 
 - **단위:** 도메인 상태머신, 토큰 발급/검증 라운드트립, RTR 재사용 탐지, OTP 제한(miniredis), JWKS 검증기(회전/다운 내성)
 - **E2E:** `scripts/m*_smoke.sh` — 각 마일스톤의 실행 가능한 정의
-- **통합(testcontainers)·부하(k6)·서킷 브레이커 데모:** Phase 7 예정
+- **E2E·부하·내결함성:** `make e2e`, `make loadtest-short`, `make loadtest` — [Phase 7 측정 결과](docs/benchmark-results.md)
 
 ## 로드맵
 
@@ -249,7 +250,7 @@ make test    # 단위 테스트 전체
 | 4     | 이벤팅 — 아웃박스 릴레이 + 읽기 모델                                                              | ✅ 2026-07-19             |
 | 5     | React 프론트엔드 (**M3**)                                                                    | ✅**M3** 2026-08-06 |
 | 6     | 엣지 플로우 — DORMANT 재활성화, 미등록 기기 로그인 시 추가 검증 (OTP 하드닝은 Phase 2에서 선반영) | ✅ 2026-08-28             |
-| 7     | NFR 검증 — k6 부하 테스트, 서킷 브레이커 데모, testcontainers                                     | 📋 예정                   |
+| 7     | NFR 검증 — k6 B1–B6, 실 API 스케일아웃, Identity 장애 내성, RTR 동시성                         | ✅ [2026-09-01](docs/benchmark-results.md) |
 
 ## 프로젝트 컨벤션
 
@@ -261,3 +262,26 @@ make test    # 단위 테스트 전체
 ---
 
 *Solo PoC project — 상세 설계 배경과 트레이드오프는 [`prd.md`](./prd.md) 참고.*
+
+## Phase 7 NFR 검증 요약 (2026-09-01)
+
+Apple M1 MacBook Air(8 cores, 16 GB) 로컬 Docker Desktop 환경에서 실행한 PoC 기준선입니다.
+절대적인 프로덕션 수용량이 아니라 **무상태 검증의 확장 형태, 로컬 SLO, 장애 내성, 동시성 정합성**을 검증합니다.
+
+| 항목 | 측정 결과 | 판정 |
+| :--- | :--- | :---: |
+| Refresh(B1) | 5분 동안 500 RPS, 149,964건 완료, p99 **42.10 ms**, 오류 0% | PASS |
+| Active login(B2) | 1분 동안 100 RPS, 6,000건, p99 **7.96 ms**, 오류 0% | PASS |
+| Board create/list(B3) | 1분 동안 1,000 RPS, 60,001건, p99 **17.53 ms**, 오류 0.032% | PASS |
+| Board 스케일아웃(B4) | 1 replica 1,000 RPS → 2 replicas 1,893.6 RPS, **1.89×**, 격리 재실행 오류 0% | PASS |
+| Identity 장애(B5) | Identity 중지 중 인증 Board write 10,001건 성공, p99 **12.61 ms**, breaker open/recovery 확인 | PASS |
+| RTR reuse flood(B6) | 50개 동시 요청 중 1개만 rotate, 재사용 감지 후 family 전체 폐기, 5xx 0건 | PASS |
+| 통합/회귀 | Go 전체, Vitest 4개, MySQL 8 testcontainers 레포지토리 2개, Compose E2E | PASS |
+
+온캐시 RS256 verifier microbenchmark는 **8,047 ns/op**(약 124k ops/s)입니다. B4의 2-replica 구간은
+처리량 비율은 통과했지만 공유 M1/MySQL 경합으로 p99이 **129.40 ms**까지 증가했습니다.
+21M MAU의 프로덕션 용량/비용을 주장하려면 동일 스위트를 분리된 k6 generator, ALB/TLS, RDS,
+ElastiCache를 사용한 AWS 환경에서 재실행해야 합니다.
+
+세부 환경, 시나리오별 수치, B4 커넥션 풀 결함과 RTR race 수정 내용은
+**[`docs/benchmark-results.md`](docs/benchmark-results.md)**에 기록했습니다.

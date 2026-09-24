@@ -67,7 +67,7 @@ services:
       TOKEN_AUDIENCE: board
     ports:
       - "8091:8091" # HTTP: gateway
-      - "9092:9091" # gRPC — host 9092, 9091 is taken on this host
+      - "9091:9091" # gRPC
     depends_on:
       mysql:
         condition: service_healthy

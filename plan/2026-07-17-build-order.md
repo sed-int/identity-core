@@ -1,6 +1,6 @@
 # Plan: Build order
 
-> Status: 🚧 In progress — Phases 0–6 ✅ done (M1–M3 passed, edge flows 2026-08-28) · Phase 7 (NFR 검증) next
+> Status: ✅ Completed — Phases 0–7 done (M1–M3 + local NFR matrix passed; Phase 7 results 2026-09-01)
 >
 > Phase 0 notes: logger uses zerolog (user preference over slog); Redis exposed on host port **6380** (6379 taken by the go-msa project); generated code is committed under `api/gen/`; `make install-tools` installs pinned buf + protoc plugins.
 
